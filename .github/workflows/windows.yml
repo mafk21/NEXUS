@@ -1,0 +1,29 @@
+name: Windows build and tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:win
+      - name: Smoke test packaged app (no system changes)
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'release\win-unpacked\NEXUS.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList '--nexus-smoke-test' -PassThru
+          if (-not $process.WaitForExit(45000)) { $process.Kill(); throw 'NEXUS smoke test timed out' }
+          if ($process.ExitCode -ne 0) { throw "NEXUS smoke test failed with exit code $($process.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-Windows-installer
+          path: release/*.exe
+          if-no-files-found: error
