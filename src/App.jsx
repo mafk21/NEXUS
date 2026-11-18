@@ -112,10 +112,14 @@ export default function App() {
   const [suggestion, setSuggestion] = useState(null)
   const suggestionRef = useRef(null)
   const [busy, setBusy] = useState(false)
+  const quickActionBusy = useRef(false)
   const [previewUrl, setPreviewUrl] = useState('')
   const [previewError, setPreviewError] = useState('')
   const [startup, setStartup] = useState({ available: false, reason: 'Available in the installed Windows app.' })
   const [startupBusy, setStartupBusy] = useState(false)
+  const [notchEnabled, setNotchEnabled] = useState(() => { try { return window.nexusDesktop?.platform === 'win32' && localStorageOrNull()?.getItem('nexus.notch.enabled.v1') !== 'false' } catch { return false } })
+  const [notchBusy, setNotchBusy] = useState(false)
+  const notchHandler = useRef(() => {})
   const [selectedId, setSelectedId] = useState(() => initial.workspace.active?.categoryId || initial.workspace.categories[0]?.id || null)
   const [selectedSetupId, setSelectedSetupId] = useState(() => initial.workspace.active?.setupId || initial.workspace.categories[0]?.setups[0]?.id || null)
   const [page, setPage] = useState('home')
@@ -134,6 +138,32 @@ export default function App() {
   const desktop = window.nexusDesktop
   const appliesWallpaper = desktop?.platform === 'win32'
   const setupShortcuts = selected && selectedSetup ? shortcutsFor(selected, selectedSetup) : []
+  useEffect(() => {
+    if (!desktop?.onNotchAction) return
+    return desktop.onNotchAction(action => notchHandler.current(action))
+  }, [desktop])
+  useEffect(() => {
+    if (desktop?.platform !== 'win32' || !desktop?.setNotchEnabled) return
+    let live = true
+    desktop.setNotchEnabled(notchEnabled).then(result => {
+      if (live && result?.error) setNotice(`Floating notch: ${result.error}`)
+    }).catch(() => { if (live) setNotice('Could not update the floating notch.') })
+    return () => { live = false }
+  }, [desktop, notchEnabled])
+  useEffect(() => {
+    if (!desktop?.updateNotch || desktop.platform !== 'win32') return
+    const category = workspace.categories.find(c => c.id === workspace.active?.categoryId)
+    const item = category?.setups.find(s => s.id === workspace.active?.setupId)
+    const suggestedCategory = workspace.categories.find(c => c.id === suggestion?.categoryId)
+    const suggestedSetup = suggestedCategory?.setups.find(s => s.id === suggestion?.setupId)
+    desktop.updateNotch({
+      categories: workspace.categories.map(c => ({ id: c.id, name: c.name, setups: c.setups.map(s => ({ id: s.id, name: s.name })) })),
+      active: workspace.active,
+      shortcuts: category && item ? shortcutsFor(category, item).map(s => ({ id: s.id, label: s.label, type: s.type })) : [],
+      busy, notice,
+      suggestion: suggestion && suggestedCategory && suggestedSetup ? { id: suggestion.id, categoryName: suggestedCategory.name, setupName: suggestedSetup.name, reason: suggestion.type === 'schedule' ? `It’s ${suggestion.time}.` : `${suggestion.process} opened.` } : null
+    })
+  }, [desktop, workspace, suggestion, busy, notice])
   useEffect(() => {
     let mounted = true
     if (desktop?.getStartup) desktop.getStartup().then(result => { if (mounted) setStartup(result) }).catch(() => { if (mounted) setStartup({ available: false, reason: 'Could not read startup setting.' }) })
@@ -168,13 +198,14 @@ export default function App() {
     setSelectedId(id); setSelectedSetupId(active?.categoryId === id ? active.setupId : category.setups[0]?.id || null); setPage('category'); setNotice('')
   }
   async function activate(targetCategory = selected, targetSetup = selectedSetup) {
-    if (!targetCategory || !targetSetup || busy) return
+    if (!targetCategory || !targetSetup || busy || quickActionBusy.current) return
     const categoryId = targetCategory.id, setupId = targetSetup.id, name = targetSetup.name, reference = wallpaperFor(targetCategory, targetSetup)
     const automatic = workspaceRef.current.active?.categoryId === categoryId && workspaceRef.current.active?.setupId === setupId ? [] : shortcutsFor(targetCategory, targetSetup).filter(item => item.autoOpen)
     if (!desktop) {
       commit(activateSetup(workspaceRef.current, categoryId, setupId), `${name} selected in this browser preview. Your Windows wallpaper was not changed.`)
       return
     }
+    quickActionBusy.current = true
     setBusy(true)
     try {
       if (appliesWallpaper) {
@@ -199,7 +230,7 @@ export default function App() {
       const message = appliesWallpaper ? `${name} is active and its wallpaper was applied to Windows.` : `${name} is active in NEXUS. The system wallpaper was not changed.`
       commit(activateSetup(workspaceRef.current, categoryId, setupId), failed.length ? `${message} Some shortcuts failed: ${failed.join('; ')}` : message)
     } catch { setNotice(appliesWallpaper ? 'Wallpaper was not applied. The desktop service could not be reached.' : 'Could not activate this setup. The desktop service could not be reached.') }
-    finally { setBusy(false) }
+    finally { quickActionBusy.current = false; setBusy(false) }
   }
   function assignWallpaper(categoryId, setupId, reference) {
     const current = workspaceRef.current
@@ -245,10 +276,12 @@ export default function App() {
   }
   async function openShortcut(item) {
     if (!desktop?.openShortcut) { setNotice('Shortcuts can be opened from the installed desktop app, not this browser preview.'); return }
+    if (busy || quickActionBusy.current) return
+    quickActionBusy.current = true
     setBusy(true)
     try { const result = await desktop.openShortcut(item.type, item.target); setNotice(result.success ? `Opened ${item.label}.` : `Could not open ${item.label}: ${result.error || 'Unknown error.'}`) }
     catch { setNotice(`Could not open ${item.label}.`) }
-    finally { setBusy(false) }
+    finally { quickActionBusy.current = false; setBusy(false) }
   }
   async function toggleStartup() {
     if (!startup.available || startupBusy || !desktop?.setStartup) return
@@ -307,6 +340,48 @@ export default function App() {
     if (next === workspaceRef.current) setNotice('Could not import this setup.')
     else { commit(next, 'Setup imported. Website shortcuts will not open automatically.'); setSelectedId(categoryId); setSelectedSetupId(id); setPage('category') }
     setPendingImport(null)
+  }
+  notchHandler.current = action => {
+    if (!action || busy || quickActionBusy.current) return
+    if (action.type === 'activate') {
+      const category = workspaceRef.current.categories.find(c => c.id === action.categoryId)
+      const item = category?.setups.find(s => s.id === action.setupId)
+      if (!item) { setNotice('That setup no longer exists.'); return }
+      setSelectedId(category.id); setSelectedSetupId(item.id); setPage('category')
+      void activate(category, item)
+    } else if (action.type === 'shortcut') {
+      const current = workspaceRef.current
+      if (current.active?.categoryId !== action.categoryId || current.active?.setupId !== action.setupId) { setNotice('The active setup changed. Please try again.'); return }
+      const category = current.categories.find(c => c.id === action.categoryId)
+      const item = category?.setups.find(s => s.id === action.setupId)
+      const shortcut = item && shortcutsFor(category, item).find(s => s.id === action.shortcutId)
+      if (shortcut) void openShortcut(shortcut)
+      else setNotice('That shortcut no longer exists.')
+    } else if (action.type === 'media' && ['previous', 'playPause', 'next'].includes(action.command)) {
+      void sendNotchMedia(action.command)
+    } else if ((action.type === 'accept-suggestion' || action.type === 'dismiss-suggestion') && suggestionRef.current?.id === action.ruleId) {
+      if (action.type === 'accept-suggestion') void acceptSuggestion()
+      else dismissSuggestion()
+    }
+  }
+  async function sendNotchMedia(command) {
+    if (!desktop?.sendMediaKey || busy || quickActionBusy.current) return
+    quickActionBusy.current = true; setBusy(true)
+    try { const result = await desktop.sendMediaKey(command); setNotice(result.success ? 'Media key sent to Windows. A compatible player must handle it.' : result.error || 'Could not send the media command.') }
+    catch { setNotice('Could not send the media command.') }
+    finally { quickActionBusy.current = false; setBusy(false) }
+  }
+  async function toggleNotch() {
+    if (notchBusy || !desktop?.setNotchEnabled) return
+    const next = !notchEnabled
+    setNotchBusy(true)
+    try {
+      const result = await desktop.setNotchEnabled(next)
+      if (!result?.success) { setNotice(result?.error || 'Could not update the floating notch.'); return }
+      setNotchEnabled(next)
+      try { localStorageOrNull()?.setItem('nexus.notch.enabled.v1', String(next)) } catch { setNotice('Notch preference could not be saved for next time.') }
+    } catch { setNotice('Could not update the floating notch.') }
+    finally { setNotchBusy(false) }
   }
   function toggleMotion() { const next = !reducedMotion; setReducedMotion(next); if (!saveReducedMotion(localStorageOrNull(), next)) setNotice('This preference could not be saved on this device.') }
   function submitEditor(values) {
@@ -386,7 +461,7 @@ export default function App() {
         <div className="category-grid">{workspace.categories.map((category, index) => <button className={`category-card ${selectedId === category.id ? 'card-selected' : ''}`} key={category.id} onClick={() => selectCategory(category.id)} aria-label={`Explore ${category.name} category`} aria-pressed={page === 'category' && selectedId === category.id}><div className="card-art" style={{ backgroundImage: `linear-gradient(180deg, transparent 30%, rgba(14,15,23,.75)), url("${wallpaperUrl(category.image)}")` }}><span className="card-number">{String(index + 1).padStart(2, '0')}</span>{active?.categoryId === category.id && <span className="card-active"><span/> ACTIVE</span>}<span className="card-icon"><Icon name={category.icon} size={18}/></span></div><div className="card-copy"><div className="card-title"><strong>{category.name}</strong><ArrowDownRight size={16}/></div><p>{category.description || 'Your space, your way.'}</p><span className="setup-count">{category.setups.length} {category.setups.length === 1 ? 'SETUP' : 'SETUPS'}</span></div></button>)}</div>
         <div className="lower-note"><div><span className="lower-icon"><WandSparkles size={17}/></span><div><strong>It’s all yours.</strong><p>Create a category or open one to make your own setups.</p></div></div><button className="text-button" onClick={() => openDialog({ mode: 'new-category' })}>NEW CATEGORY <ArrowRight size={14}/></button></div>
       </div>}
-      {(page === 'settings' || page === 'about') && <div className="content secondary-page"><div className="eyebrow"><span className="eyebrow-spark">✳</span> {page === 'settings' ? 'MAKE IT COMFORTABLE' : 'A LITTLE INTRODUCTION'}</div><h1>{page === 'settings' ? <>A little more <em>you.</em></> : <>Meet <em>NEXUS.</em></>}</h1>{page === 'settings' ? <><p className="intro">The little details matter. Make NEXUS feel right for you.</p><section className="settings-card"><div><span className="setting-icon"><Sparkles size={19}/></span><div><h3>Reduce motion</h3><p>Keep transitions subtle throughout the app.</p></div></div><button className={`toggle ${reducedMotion ? 'on' : ''}`} role="switch" aria-checked={reducedMotion} aria-label="Reduce motion" onClick={toggleMotion}><span/></button></section><section className="settings-card startup-card"><div><span className="setting-icon"><AppWindow size={19}/></span><div><h3>Start with Windows</h3><p>{startup.available ? 'Open NEXUS when you sign in.' : startup.reason}</p></div></div><button className={`toggle ${startup.enabled ? 'on' : ''}`} role="switch" aria-checked={!!startup.enabled} aria-label="Start with Windows" disabled={!startup.available || startupBusy} onClick={toggleStartup}><span/></button></section><section className="profile-card"><div className="eyebrow subtle">JUST FOR THIS DEVICE</div><h3>Your local profile</h3><p>Optional. No account or sign-in. Your name stays here unless you choose to include it in a shared setup.</p><form onSubmit={updateProfile}><label htmlFor="profile-name">DISPLAY NAME</label><div><input id="profile-name" className="text-input" value={profileDraft} maxLength={60} onChange={e => setProfileDraft(e.target.value)} placeholder="Add a name, if you like"/><button className="outline-button" type="submit">Save</button></div></form></section><p className="settings-hint">More personalization will arrive as NEXUS grows.</p>{notice && <div className="notice" role="status">{notice}</div>}</> : <><p className="intro">Your space. Your mode. Your way.</p><section className="about-card"><span className="about-symbol">✳</span><div className="eyebrow subtle">BUILT FOR THE MOMENTS IN BETWEEN</div><h2>A little space for <em>everything you do.</em></h2><p>NEXUS brings your different worlds together in one considered space. Create categories and setups that feel like you.</p><div className="about-meta"><span>VERSION 1.0 RC</span><span>WINDOWS FIRST</span><span>MADE FOR YOU</span></div></section></>}</div>}
+      {(page === 'settings' || page === 'about') && <div className="content secondary-page"><div className="eyebrow"><span className="eyebrow-spark">✳</span> {page === 'settings' ? 'MAKE IT COMFORTABLE' : 'A LITTLE INTRODUCTION'}</div><h1>{page === 'settings' ? <>A little more <em>you.</em></> : <>Meet <em>NEXUS.</em></>}</h1>{page === 'settings' ? <><p className="intro">The little details matter. Make NEXUS feel right for you.</p><section className="settings-card"><div><span className="setting-icon"><Sparkles size={19}/></span><div><h3>Reduce motion</h3><p>Keep transitions subtle throughout the app.</p></div></div><button className={`toggle ${reducedMotion ? 'on' : ''}`} role="switch" aria-checked={reducedMotion} aria-label="Reduce motion" onClick={toggleMotion}><span/></button></section><section className="settings-card"><div><span className="setting-icon"><LayoutGrid size={19}/></span><div><h3>Floating notch</h3><p>{desktop?.platform === 'win32' ? 'Quick access while NEXUS is running. Minimize the main window to keep it on screen; closing NEXUS exits both.' : 'Available in the Windows desktop app.'}</p></div></div><button className={`toggle ${notchEnabled ? 'on' : ''}`} role="switch" aria-checked={notchEnabled} aria-label="Floating notch" disabled={desktop?.platform !== 'win32' || !desktop?.setNotchEnabled || notchBusy} onClick={toggleNotch}><span/></button></section><section className="settings-card startup-card"><div><span className="setting-icon"><AppWindow size={19}/></span><div><h3>Start with Windows</h3><p>{startup.available ? 'Open NEXUS when you sign in.' : startup.reason}</p></div></div><button className={`toggle ${startup.enabled ? 'on' : ''}`} role="switch" aria-checked={!!startup.enabled} aria-label="Start with Windows" disabled={!startup.available || startupBusy} onClick={toggleStartup}><span/></button></section><section className="profile-card"><div className="eyebrow subtle">JUST FOR THIS DEVICE</div><h3>Your local profile</h3><p>Optional. No account or sign-in. Your name stays here unless you choose to include it in a shared setup.</p><form onSubmit={updateProfile}><label htmlFor="profile-name">DISPLAY NAME</label><div><input id="profile-name" className="text-input" value={profileDraft} maxLength={60} onChange={e => setProfileDraft(e.target.value)} placeholder="Add a name, if you like"/><button className="outline-button" type="submit">Save</button></div></form></section><p className="settings-hint">More personalization will arrive as NEXUS grows.</p>{notice && <div className="notice" role="status">{notice}</div>}</> : <><p className="intro">Your space. Your mode. Your way.</p><section className="about-card"><span className="about-symbol">✳</span><div className="eyebrow subtle">BUILT FOR THE MOMENTS IN BETWEEN</div><h2>A little space for <em>everything you do.</em></h2><p>NEXUS brings your different worlds together in one considered space. Create categories and setups that feel like you.</p><div className="about-meta"><span>VERSION 1.0 RC</span><span>WINDOWS FIRST</span><span>MADE FOR YOU</span></div></section></>}</div>}
       <div className="content suggestions-wrap" hidden={page !== 'home' && page !== 'category'}><Automation selected={selected} setup={selectedSetup} workspace={workspace} desktop={desktop} onSuggestion={proposeSuggestion}/><footer><span>YOUR SPACE. YOUR MODE. YOUR WAY.</span><span>MADE WITH INTENTION <span>✳</span></span></footer></div>
     </main>
     {shareOpen && selected && selectedSetup && <ShareDialog category={selected} setup={selectedSetup} shortcuts={setupShortcuts} profile={profile} onCancel={() => setShareOpen(false)} onExport={exportShare}/>}

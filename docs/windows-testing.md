@@ -39,3 +39,11 @@ Record failures, Windows and Node versions, commands, and actual results. Remove
 ### Animated wallpaper research
 
 [Flowing Light Backgrounds](https://github.com/Lampe332/flowing-light-backgrounds) lists looping Cosmic Violet and Marble Gold videos under CC0 1.0. They have not been bundled or integrated. A reliable Windows desktop video host (including multi-monitor handling, performance, cleanup, and fallback to a static wallpaper) still needs to be built and tested; playing a video inside NEXUS would not be the same feature.
+
+## Floating notch checks (not yet physically verified)
+
+- Start NEXUS: the notch should appear at the top of the primary screen. Expand and collapse it, then minimize the main window and use Open NEXUS to restore it.
+- Select a different category/setup without activating it. Verify nothing changes until Activate setup is clicked; then verify the wallpaper and any opt-in shortcuts follow the same rules as the main app. Test a failing wallpaper and a deleted or changed setup.
+- Open an active setup shortcut and test media keys with a compatible player. Verify failures show in the notch.
+- With the main window minimized, trigger a suggestion and verify the notch indicates it. Dismiss it without a switch, then try a new suggestion and explicitly accept. No trigger should activate a setup without approval.
+- Turn the notch off and on in Settings, restart NEXUS to confirm the preference, and verify that closing the main window or choosing Quit NEXUS exits both. Check display scaling, primary-display changes, multiple monitors, fullscreen apps, and small displays. No global shortcut or system tray is provided.
