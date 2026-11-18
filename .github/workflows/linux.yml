@@ -58,6 +58,26 @@ jobs:
             echo "::error title=Linux smoke test failed::$message"
             exit 1
           fi
+      - name: Install, launch and remove x64 Debian package
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(release/*.deb)
+          sudo apt-get update -qq
+          sudo apt-get install -y "./${packages[0]}"
+          test -x /usr/bin/nexus
+          dpkg-query -L nexus-desktop | grep -q '^/usr/share/applications/.*\.desktop$'
+          # This tests the installed binary on an ephemeral CI runner, not ChromeOS.
+          if ! timeout 60s xvfb-run -a /usr/bin/nexus --no-sandbox --nexus-smoke-test >"$RUNNER_TEMP/nexus-installed-smoke.log" 2>&1; then
+            cat "$RUNNER_TEMP/nexus-installed-smoke.log"
+            message=$(tail -n 30 "$RUNNER_TEMP/nexus-installed-smoke.log" | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            echo "::error title=Installed Linux smoke test failed::$message"
+            exit 1
+          fi
+          sudo apt-get remove -y nexus-desktop
+          test ! -e /usr/bin/nexus
       - uses: actions/upload-artifact@v4
         with:
           name: NEXUS-Linux-${{ matrix.arch }}-deb
