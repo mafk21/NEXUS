@@ -54,5 +54,9 @@
     "vitest": "^5.1.0",
     "wait-on": "^8.0.2"
   },
-  "productName": "NEXUS"
+  "productName": "NEXUS",
+  "overrides": {
+    "minimatch@^10.2.5": "11.0.9",
+    "minimatch@^9.0.3": "11.0.9"
+  }
 }
