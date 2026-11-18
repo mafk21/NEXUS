@@ -43,6 +43,8 @@ Record failures, Windows and Node versions, commands, and actual results. Remove
 ## Floating notch checks (not yet physically verified)
 
 - Start NEXUS: the notch should appear at the top of the primary screen. Expand and collapse it, then minimize the main window and use Open NEXUS to restore it.
+- Check the collapsed and expanded notch at different display scales and on a small screen. The active-space card uses built-in category artwork and the active setup's accent; long names should truncate and the panel should scroll without covering its footer. Test opening, closing and Escape, including keyboard focus.
+- Check the refreshed main app and notch hover and entrance effects. Turn on **Reduce motion** in Settings and check that animations stop in both windows; also check the Windows reduced-motion preference with the app setting off.
 - Select a different category/setup without activating it. Verify nothing changes until Activate setup is clicked; then verify the wallpaper and any opt-in shortcuts follow the same rules as the main app. Test a failing wallpaper and a deleted or changed setup.
 - Open an active setup shortcut and test media keys with a compatible player. Verify failures show in the notch.
 - With the main window minimized, trigger a suggestion and verify the notch indicates it. Dismiss it without a switch, then try a new suggestion and explicitly accept. No trigger should activate a setup without approval.

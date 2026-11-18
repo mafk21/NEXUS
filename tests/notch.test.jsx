@@ -8,7 +8,7 @@ import Notch from '../src/Notch.jsx'
 afterEach(() => cleanup())
 const data = {
   categories: [
-    { id: 'work', name: 'Work', setups: [{ id: 'default-work', name: 'Default' }] },
+    { id: 'work', name: 'Work', image: 'work.png', setups: [{ id: 'default-work', name: 'Default', color: '#d3ba9b' }] },
     { id: 'gaming', name: 'Gaming', setups: [{ id: 'default-gaming', name: 'Default' }, { id: 'own', name: 'Mine' }] }
   ],
   active: { categoryId: 'work', setupId: 'default-work' },
@@ -36,6 +36,19 @@ describe('floating notch', () => {
     await user.click(screen.getAllByRole('button', { name: 'Open NEXUS' })[0])
     expect(bridge.openApp).toHaveBeenCalledOnce()
     await user.click(screen.getAllByRole('button', { name: 'Collapse NEXUS notch' })[0]); expect(bridge.setExpanded).toHaveBeenLastCalledWith(false)
+  })
+  it('shows the active space, respects the app motion setting and closes with Escape', async () => {
+    const bridge = fakeBridge({ ...data, reducedMotion: true }), user = userEvent.setup(); render(<Notch bridge={bridge}/>)
+    const notch = screen.getByRole('main', { name: 'NEXUS floating notch' })
+    expect(notch.classList.contains('notch-reduce-motion')).toBe(true)
+    expect(notch.style.getPropertyValue('--notch-accent')).toBe('#d3ba9b')
+    await user.click(screen.getByRole('button', { name: 'Expand NEXUS notch' }))
+    expect(screen.getByText('ACTIVE SPACE')).toBeTruthy()
+    expect(notch.querySelector('.notch-active-card').style.getPropertyValue('--notch-image')).toContain('work.png')
+    await user.keyboard('{Escape}')
+    expect(bridge.setExpanded).toHaveBeenLastCalledWith(false)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Expand NEXUS notch' }))
+    expect(bridge.action).not.toHaveBeenCalled()
   })
   it('only accepts or dismisses a suggestion after an explicit click', async () => {
     const suggestion = { id: 'rule-1', reason: 'It’s 09:30.', categoryName: 'Gaming', setupName: 'Default' }

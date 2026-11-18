@@ -158,13 +158,13 @@ export default function App() {
     const suggestedCategory = workspace.categories.find(c => c.id === suggestion?.categoryId)
     const suggestedSetup = suggestedCategory?.setups.find(s => s.id === suggestion?.setupId)
     desktop.updateNotch({
-      categories: workspace.categories.map(c => ({ id: c.id, name: c.name, setups: c.setups.map(s => ({ id: s.id, name: s.name })) })),
+      categories: workspace.categories.map(c => ({ id: c.id, name: c.name, image: c.image, setups: c.setups.map(s => ({ id: s.id, name: s.name, color: s.color })) })),
       active: workspace.active,
       shortcuts: category && item ? shortcutsFor(category, item).map(s => ({ id: s.id, label: s.label, type: s.type })) : [],
-      busy, notice,
+      busy, notice, reducedMotion,
       suggestion: suggestion && suggestedCategory && suggestedSetup ? { id: suggestion.id, categoryName: suggestedCategory.name, setupName: suggestedSetup.name, reason: suggestion.type === 'schedule' ? `It’s ${suggestion.time}.` : `${suggestion.process} opened.` } : null
     })
-  }, [desktop, workspace, suggestion, busy, notice])
+  }, [desktop, workspace, suggestion, busy, notice, reducedMotion])
   useEffect(() => {
     let mounted = true
     if (desktop?.getStartup) desktop.getStartup().then(result => { if (mounted) setStartup(result) }).catch(() => { if (mounted) setStartup({ available: false, reason: 'Could not read startup setting.' }) })

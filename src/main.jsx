@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import Notch from './Notch.jsx'
 import './styles.css'
+import './visual-refresh.css'
 
 if (window.location.hash === '#notch' && window.nexusNotch) document.documentElement.classList.add('notch-document')
 

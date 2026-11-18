@@ -228,7 +228,7 @@ describe('NEXUS interface', () => {
     const user = userEvent.setup(); render(<App />)
     await waitFor(() => expect(window.nexusDesktop.setNotchEnabled).toHaveBeenCalledWith(true))
     const snapshot = window.nexusDesktop.updateNotch.mock.lastCall[0]
-    expect(snapshot.categories).toHaveLength(5); expect(JSON.stringify(snapshot)).not.toContain('target')
+    expect(snapshot.categories).toHaveLength(5); expect(snapshot.reducedMotion).toBe(false); expect(snapshot.categories[0].image).toBe('gaming.png'); expect(snapshot.categories[0].setups[0].color).toBe('#a688ff'); expect(JSON.stringify(snapshot)).not.toContain('target')
     await act(async () => handler({ type: 'shortcut', categoryId: 'gaming', setupId: 'default-gaming', shortcutId: 'starter-gaming' }))
     expect(window.nexusDesktop.openShortcut).not.toHaveBeenCalled()
     await act(async () => handler({ type: 'activate', categoryId: 'gaming', setupId: 'default-gaming' }))
@@ -236,7 +236,7 @@ describe('NEXUS interface', () => {
     expect(window.nexusDesktop.applyWallpaper).toHaveBeenCalledWith('builtin:gaming.png')
     await act(async () => handler({ type: 'shortcut', categoryId: 'gaming', setupId: 'default-gaming', shortcutId: 'starter-gaming' }))
     await waitFor(() => expect(window.nexusDesktop.openShortcut).toHaveBeenCalledWith('website', 'https://store.steampowered.com/'))
-    await user.click(screen.getByRole('button', { name: 'Settings' })); await user.click(screen.getByRole('switch', { name: 'Floating notch' }))
+    await user.click(screen.getByRole('button', { name: 'Settings' })); await user.click(screen.getByRole('switch', { name: 'Reduce motion' })); await waitFor(() => expect(window.nexusDesktop.updateNotch.mock.lastCall[0].reducedMotion).toBe(true)); await user.click(screen.getByRole('switch', { name: 'Floating notch' }))
     expect(localStorage.getItem('nexus.notch.enabled.v1')).toBe('false'); expect(window.nexusDesktop.setNotchEnabled).toHaveBeenCalledWith(false)
   })
   it('does not switch for a suggestion until the notch confirms the current rule', async () => {
