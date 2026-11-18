@@ -12,6 +12,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Verify release version can be determined
+        run: node scripts/release-tag.cjs
       - run: npm ci
       - name: Audit all dependencies
         run: npm audit
