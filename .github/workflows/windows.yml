@@ -13,6 +13,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Audit all dependencies
+        run: npm audit
       - run: npm test
       - name: Build Windows installer
         shell: pwsh

@@ -38,7 +38,7 @@ npm test
 npm run dist:win
 ```
 
-If the build succeeds, the installer will be in `release/`. It may trigger a Windows warning because it is unsigned. Build-time security findings remain unresolved; see [dependency security](docs/security.md#dependency-audit) before building. Do not run `npm audit fix --force` without reviewing breaking changes.
+If the build succeeds, the installer will be in `release/`. It may trigger a Windows warning because it is unsigned. The full dependency audit currently reports zero known vulnerabilities, using a temporary third-party security fork; see [dependency security](docs/security.md#dependency-audit) before building. Do not run `npm audit fix --force` without reviewing breaking changes.
 
 For troubleshooting, development commands, and the difference between the browser preview and the desktop app, see the [development guide](docs/development.md). For a checklist before relying on an installer, see [Windows verification](docs/windows-testing.md).
 
