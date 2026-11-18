@@ -10,6 +10,12 @@ async function runSmokeTest(window, app, testNotch = async () => {}) {
     await loaded
     await check("!!document.querySelector('[aria-label=\"Gaming Default setup\"]')")
     await testNotch()
+    if (process.platform === 'win32') {
+      // Exercise the packaged IPC path. A transient offline/rate-limited result is valid and visible to the user.
+      const updateStatus = await window.webContents.executeJavaScript("window.nexusDesktop.checkUpdates().then(r => r.status)")
+      if (!['available', 'up-to-date', 'no-releases', 'no-installer', 'error'].includes(updateStatus)) throw new Error(`Update check IPC returned ${updateStatus}`)
+      console.log(`NEXUS update check smoke status: ${updateStatus}`)
+    }
     clearTimeout(timeout); app.exit(0)
   } catch (error) {
     console.error('NEXUS smoke test failed:', error)

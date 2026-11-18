@@ -204,7 +204,7 @@ describe('NEXUS interface', () => {
   it('keeps a profile local and imports shared sites with auto-open disabled', async () => {
     const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Settings' }))
     await user.type(screen.getByLabelText('DISPLAY NAME'), 'M'); await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(screen.getByRole('status').textContent).toContain('Local profile saved')
+    expect(screen.getByText('Local profile saved on this device.')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Open Gaming category' }))
     await user.click(screen.getByRole('button', { name: 'Share setup' })); let dialog = screen.getByRole('dialog')
     expect(within(dialog).getByRole('checkbox', { name: /Include my local profile name/ }).checked).toBe(false)

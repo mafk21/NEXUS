@@ -47,3 +47,10 @@ Record failures, Windows and Node versions, commands, and actual results. Remove
 - Open an active setup shortcut and test media keys with a compatible player. Verify failures show in the notch.
 - With the main window minimized, trigger a suggestion and verify the notch indicates it. Dismiss it without a switch, then try a new suggestion and explicitly accept. No trigger should activate a setup without approval.
 - Turn the notch off and on in Settings, restart NEXUS to confirm the preference, and verify that closing the main window or choosing Quit NEXUS exits both. Check display scaling, primary-display changes, multiple monitors, fullscreen apps, and small displays. No global shortcut or system tray is provided.
+
+## Release checker and upgrade checks (not yet verified end to end)
+
+- On a packaged Windows build, open Settings and press Check for updates. Verify that no request is made before the button is pressed and that network, rate-limit and no-release errors are distinct from being up to date. Browser and Linux builds should show that checking is unavailable.
+- With a deliberately published newer release containing the expected installer, verify its version is shown, then press Get update and verify that only the official GitHub release page opens. Nothing should download, launch, or install without a separate user action.
+- Back up important data and verify an actual upgrade by running the downloaded installer over an older installed version. Check categories, setups, wallpapers, shortcuts, startup settings and the notch afterward. Verify the Windows unsigned-installer warning and uninstall behavior.
+- Without a real newer published release, mocked tests cannot verify the complete update flow. Source builds with the same version as a release may contain different code; version checks cannot detect that difference.

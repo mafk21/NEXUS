@@ -6,6 +6,10 @@ To report a vulnerability, follow the private reporting instructions in [SECURIT
 
 The Electron renderer uses context isolation, a sandboxed preload, and disabled Node integration. Desktop actions are exposed through the preload API and validated by the main process. Local shortcut targets must be selected through the desktop picker and are resolved through a local identifier registry; website shortcuts accept HTTP or HTTPS URLs. These measures are not a substitute for a security review or testing on Windows.
 
+## Update checks
+
+Windows update checks query the fixed public `mafk21/NEXUS` GitHub releases API through Electron's network stack, on demand only. The app does not authenticate, download, verify, or execute an installer. After a newer release containing the expected Windows installer is found, a separate button opens a constructed GitHub release URL. The update check does not verify publisher identity or installer signatures; releases are currently unsigned, and GitHub's account/repository security and HTTPS are important trust boundaries. A zero audit result does not vouch for a downloaded installer. Never bypass certificate errors or warnings without understanding the risk. See [release instructions](releases.md).
+
 ## Dependency audit
 
 As of November 2026, both `npm audit` and `npm audit --omit=dev` reported zero known vulnerabilities against the current npm advisory database. This is a snapshot, not a security guarantee; audit results can change. CI runs the full audit, including build dependencies.

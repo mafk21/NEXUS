@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, ipcMain, dialog, nativeImage, screen } = require('electron')
+const { app, BrowserWindow, shell, ipcMain, dialog, nativeImage, screen, net } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 const os = require('node:os')
@@ -10,6 +10,7 @@ const { createShortcutService } = require('./shortcut-service.cjs')
 const { createStartupService } = require('./startup-service.cjs')
 const { createProcessService } = require('./process-service.cjs')
 const { createMediaService } = require('./media-service.cjs')
+const { createUpdateService, fetchReleases } = require('./update-service.cjs')
 const { validAction, notchBounds } = require('./notch-service.cjs')
 let mainWindow, notchWindow
 let latestNotchState = null, notchExpanded = false
@@ -18,6 +19,7 @@ const shortcuts = createShortcutService({ app, shell, dialog, getWindow: () => m
 const startup = createStartupService({ app })
 const processes = createProcessService()
 const media = createMediaService()
+const updates = createUpdateService({ app, shell, getReleases: () => fetchReleases(net.fetch.bind(net)) })
 function requireSender(event) {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) throw new Error('Unauthorized request.')
 }
@@ -74,6 +76,8 @@ ipcMain.handle('shortcut:choose', (event, type) => { requireSender(event); retur
 ipcMain.handle('shortcut:open', (event, type, target) => { requireSender(event); return shortcuts.open(type, target) })
 ipcMain.handle('media:send', (event, command) => { requireSender(event); return media.send(command) })
 ipcMain.handle('processes:list', event => { requireSender(event); return processes.list() })
+ipcMain.handle('update:check', event => { requireSender(event); return updates.check() })
+ipcMain.handle('update:open-release', event => { requireSender(event); return updates.openRelease() })
 ipcMain.handle('startup:get', event => { requireSender(event); return startup.get() })
 ipcMain.handle('startup:set', (event, enabled) => { requireSender(event); return startup.set(enabled) })
 function createWindow() {

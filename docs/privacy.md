@@ -26,3 +26,7 @@ Changing wallpaper and startup settings affects Windows itself. The browser prev
 ## Floating notch
 
 On Windows the notch is enabled by default while NEXUS is running. It sits at the top of the primary display and stays above ordinary windows. It shows the active setup and shortcut labels; anyone looking at your screen can see them. It receives only the names and identifiers needed for its controls, not local shortcut paths. Actions are resolved against the current workspace in the main window. Minimize the main window to keep the notch running; closing the main window or choosing Quit NEXUS exits both. Turn the notch off in Settings. It does not run after NEXUS exits and is not available in the browser preview or on Linux/Chromebook.
+
+## Update checks
+
+Update checks run only when you press **Check for updates** in the packaged Windows app. NEXUS makes an unauthenticated HTTPS request to the public GitHub releases API; GitHub can see the request and your IP address under its own privacy policy. No workspace, profile, or shortcut data is sent. The app compares version numbers locally and does not download or run an installer. If you choose **Get update**, NEXUS opens the official release page in your browser; downloading and running the unsigned installer are your separate choices. There are no update notifications or automatic background checks.
