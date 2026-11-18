@@ -9,7 +9,7 @@
     "dev:desktop": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env NEXUS_DEV_URL=http://127.0.0.1:5173 electron .\"",
     "build": "vite build",
     "test": "vitest run",
-    "dist:win": "npm run build && electron-builder --win nsis"
+    "dist:win": "npm run build && electron-builder --win nsis --publish never"
   },
   "build": {
     "appId": "com.nexus.desktop",
