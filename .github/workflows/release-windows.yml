@@ -1,0 +1,62 @@
+name: Publish Windows release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag, e.g. v1.0.0-rc.2 (must match package.json)'
+        required: true
+        type: string
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Validate tag input
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$') { throw 'Invalid version tag' }
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify tagged version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $version = node -p "require('./package.json').version"
+          $lockVersion = node -p "require('./package-lock.json').packages[''].version"
+          node -e "if (!require('./electron/update-service.cjs').parseVersion(process.env.RELEASE_TAG.slice(1))) process.exit(1)"
+          if ($LASTEXITCODE -ne 0 -or $env:RELEASE_TAG -ne "v$version" -or $lockVersion -ne $version) { throw 'Tag and valid package versions must match.' }
+      - run: npm ci
+      - name: Audit all dependencies
+        run: npm audit
+      - run: npm test
+      - name: Build Windows installer
+        run: npm run dist:win
+      - name: Smoke test packaged app without system changes
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'release\win-unpacked\NEXUS.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList '--nexus-smoke-test' -PassThru
+          if (-not $process.WaitForExit(45000)) { $process.Kill(); throw 'NEXUS smoke test timed out' }
+          if ($process.ExitCode -ne 0) { throw "NEXUS smoke test failed with exit code $($process.ExitCode)" }
+      - name: Publish release with installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $version = node -p "require('./package.json').version"
+          $installer = "release/NEXUS Setup $version.exe"
+          if (-not (Test-Path -LiteralPath $installer)) { throw 'Expected installer not found.' }
+          $ghArgs = @('release', 'create', $env:RELEASE_TAG, $installer, '--verify-tag', '--generate-notes', '--title', "NEXUS $version")
+          if ($version.Contains('-')) { $ghArgs += '--prerelease' }
+          & gh @ghArgs
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create GitHub release.' }
