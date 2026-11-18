@@ -1,6 +1,6 @@
 # Development guide
 
-NEXUS is an Electron desktop application with a React/Vite interface. Windows is the first target; other platforms are not yet supported for Windows-specific desktop actions.
+NEXUS is an Electron desktop application with a React/Vite interface. Windows is the first target. Experimental Linux desktop support is being added for Chromebooks; Windows-specific desktop actions are not available on Linux.
 
 ## Requirements
 
@@ -26,6 +26,7 @@ Run `npm ci` from inside the repository, where `package.json` and `package-lock.
 | `npm run dev` | Start the interface-only browser preview. |
 | `npm test` | Run the automated test suite. |
 | `npm run build` | Build the interface into `dist/`. |
+| `npm run dist:linux` | Attempt to build a Linux Debian package in `release/`. |
 | `npm run dist:win` | Build the interface and attempt to create a Windows NSIS installer in `release/`. |
 | `npm audit` | Check the full dependency tree, including build tools. |
 | `npm audit --omit=dev` | Check production dependencies only; this is not a substitute for the full audit. |

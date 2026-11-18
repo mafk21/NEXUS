@@ -4,6 +4,8 @@ This file records notable changes to NEXUS. It does not imply that an installer 
 
 ## Unreleased
 
+- Add experimental Linux desktop support and a Debian build for compatible x64 Chromebooks. ChromeOS wallpaper switching and Linux startup remain unsupported; Chromebook testing is outstanding.
+
 - Disable implicit publishing during installer builds; Windows CI builds and uploads an installer artifact without a GitHub publishing token.
 - Improve repository documentation, contribution guidelines, issue and pull request templates, and security reporting guidance.
 - Add a source-available personal-use license adapted from JARVIS.

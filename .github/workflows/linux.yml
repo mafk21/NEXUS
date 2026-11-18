@@ -1,0 +1,41 @@
+name: Linux desktop build and tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build x64 Debian package
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run dist:linux -- --x64 2>&1 | tee "$RUNNER_TEMP/nexus-linux-build.log" || {
+            tail -n 40 "$RUNNER_TEMP/nexus-linux-build.log"
+            exit 1
+          }
+      - name: Check package and smoke test unpacked application
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(release/*.deb)
+          test "${#packages[@]}" -eq 1
+          dpkg-deb --info "${packages[0]}"
+          exe=$(find release/linux-unpacked -maxdepth 1 -type f -iname nexus -print -quit)
+          test -n "$exe"
+          # Hosted CI's Chromium sandbox is unavailable; this flag is for the CI runner only.
+          timeout 60s xvfb-run -a "$exe" --no-sandbox --nexus-smoke-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-Linux-x64-deb
+          path: release/*.deb
+          if-no-files-found: error
