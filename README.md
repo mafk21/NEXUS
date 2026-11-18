@@ -28,7 +28,7 @@ NEXUS is a **desktop app**, not a website. The browser preview is for the interf
 
 ## Getting started
 
-No official GitHub releases have been published yet, so the update check currently reports that none are available. Older installations without the update button need one manual upgrade to a version that includes it. Future releases must have increasing versions and a Windows installer; see [publishing releases](docs/releases.md).
+The updater only finds published GitHub releases, not commits or build artifacts. Older installations without the update button need one manual upgrade to a version that includes it. Future releases must have increasing versions and a Windows installer; see [publishing releases](docs/releases.md).
 
 Successful [Windows workflow runs](https://github.com/mafk21/NEXUS/actions/workflows/windows.yml) provide a temporary `NEXUS-Windows-installer` artifact (GitHub sign-in and access may be required). This is not a published release and installation has not been verified.
 

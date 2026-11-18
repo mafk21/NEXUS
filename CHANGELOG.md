@@ -4,6 +4,8 @@ This file records notable changes to NEXUS. It does not imply that an installer 
 
 ## Unreleased
 
+## 1.0.0-rc.3 — Windows release candidate
+
 - Refresh the desktop interface and Windows floating notch with layered surfaces, active-space artwork, responsive motion, and reduced-motion support.
 
 - Add an on-demand Windows release checker, checksum-verified in-app downloads, explicit install confirmation, and a manual publishing workflow. A real Windows upgrade remains unverified.

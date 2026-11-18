@@ -56,7 +56,10 @@ jobs:
           $version = node -p "require('./package.json').version"
           $installer = "release/NEXUS Setup $version.exe"
           if (-not (Test-Path -LiteralPath $installer)) { throw 'Expected installer not found.' }
-          $ghArgs = @('release', 'create', $env:RELEASE_TAG, $installer, '--verify-tag', '--generate-notes', '--title', "NEXUS $version")
+          $notes = @'
+          Windows release candidate. The installer is unsigned, and Windows may display a warning. Back up important NEXUS data before upgrading; the release-to-installed-app upgrade and data retention have not yet been verified end to end. GitHub's SHA-256 checksum detects corruption but does not independently authenticate the publisher. See docs/security.md for the dependency audit and third-party fork limitations. An older NEXUS installation without the updater requires a one-time manual installation.
+          '@
+          $ghArgs = @('release', 'create', $env:RELEASE_TAG, $installer, '--verify-tag', '--generate-notes', '--notes', $notes, '--title', "NEXUS $version")
           if ($version.Contains('-')) { $ghArgs += '--prerelease' }
           & gh @ghArgs
           if ($LASTEXITCODE -ne 0) { throw 'Could not create GitHub release.' }

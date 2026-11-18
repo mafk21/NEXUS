@@ -1,6 +1,6 @@
 {
   "name": "nexus-desktop",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0-rc.3",
   "private": true,
   "description": "A more personal desktop, one setup at a time.",
   "main": "electron/main.cjs",
