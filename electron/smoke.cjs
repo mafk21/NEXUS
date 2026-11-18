@@ -15,6 +15,11 @@ async function runSmokeTest(window, app, testNotch = async () => {}) {
       const updateStatus = await window.webContents.executeJavaScript("window.nexusDesktop.checkUpdates().then(r => r.status)")
       if (!['available', 'up-to-date', 'no-releases', 'no-installer', 'error'].includes(updateStatus)) throw new Error(`Update check IPC returned ${updateStatus}`)
       console.log(`NEXUS update check smoke status: ${updateStatus}`)
+      if (updateStatus !== 'available') {
+        const safeUpdateActions = await window.webContents.executeJavaScript("Promise.all([window.nexusDesktop.downloadUpdate(), window.nexusDesktop.installUpdate()]).then(r => r.every(x => !!x.error))")
+        if (!safeUpdateActions) throw new Error('Unexpected update operation in smoke test')
+      }
+
     }
     clearTimeout(timeout); app.exit(0)
   } catch (error) {

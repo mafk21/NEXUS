@@ -4,7 +4,7 @@ This file records notable changes to NEXUS. It does not imply that an installer 
 
 ## Unreleased
 
-- Add an on-demand Windows release checker and a manual publishing workflow; updates open the official release page rather than installing automatically.
+- Add an on-demand Windows release checker, checksum-verified in-app downloads, explicit install confirmation, and a manual publishing workflow. A real Windows upgrade remains unverified.
 
 - Add an optional Windows floating notch for setup switching, active shortcuts, media keys, and confirmation-only suggestions.
 

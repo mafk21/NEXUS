@@ -1,3 +1,5 @@
+const fs = require('node:fs/promises')
+const { validMetadata, downloadInstaller, verifyPrepared } = require('./update-download.cjs')
 const API_URL = 'https://api.github.com/repos/mafk21/NEXUS/releases?per_page=100'
 const RELEASE_ROOT = 'https://github.com/mafk21/NEXUS/releases/tag/'
 const MAX_RESPONSE = 2 * 1024 * 1024
@@ -54,11 +56,11 @@ async function fetchReleases(fetchFn, { timeoutMs = 12000 } = {}) {
     throw error
   } finally { clearTimeout(timer); reader?.releaseLock() }
 }
-function createUpdateService({ app, shell, platform = process.platform, getReleases } = {}) {
-  let available = null, checking = false
+function createUpdateService({ app, shell, net, platform = process.platform, getReleases, download = downloadInstaller, verify = verifyPrepared } = {}) {
+  let available = null, prepared = null, checking = false, downloading = false, installing = false
   return {
     async check() {
-      if (checking) return { status: 'error', message: 'An update check is already running.' }
+      if (checking || downloading || installing) return { status: 'error', message: 'An update operation is already running.' }
       available = null
       if (platform !== 'win32' || !app.isPackaged) return { status: 'unsupported', message: 'Update checks are available in the packaged Windows app.' }
       const current = app.getVersion()
@@ -66,6 +68,7 @@ function createUpdateService({ app, shell, platform = process.platform, getRelea
       if (!parsed) return { status: 'error', message: 'The installed version cannot be checked. Please use the official NEXUS releases page.' }
       checking = true
       try {
+        if (prepared) { await fs.rm(prepared.dir, { recursive: true, force: true }).catch(() => {}); prepared = null }
         const releases = await getReleases()
         if (!Array.isArray(releases)) throw new Error('Invalid release information.')
         let newest = null, newerWithoutInstaller = false, hasEligibleRelease = false
@@ -76,20 +79,47 @@ function createUpdateService({ app, shell, platform = process.platform, getRelea
           hasEligibleRelease = true
           if (compareVersions(version, current) <= 0) continue
           const expectedAsset = `NEXUS Setup ${version}.exe`
-          if (!Array.isArray(release.assets) || !release.assets.some(asset => asset?.name === expectedAsset && asset.state === 'uploaded' && typeof asset.size === 'number' && asset.size > 0)) { newerWithoutInstaller = true; continue }
-          if (!newest || compareVersions(version, newest) > 0) newest = version
+          const asset = Array.isArray(release.assets) && release.assets.find(item => item?.name === expectedAsset && item.state === 'uploaded' && validMetadata(item))
+          if (!asset) { newerWithoutInstaller = true; continue }
+          if (!newest || compareVersions(version, newest.version) > 0) newest = { version, asset: { size: asset.size, digest: asset.digest } }
         }
-        if (newest) { available = newest; return { status: 'available', current, version: newest } }
-        if (newerWithoutInstaller) return { status: 'no-installer', current, message: 'A newer release exists, but its Windows installer is not available yet.' }
+        if (newest) { available = newest; return { status: 'available', current, version: newest.version } }
+        if (newerWithoutInstaller) return { status: 'no-installer', current, message: 'A newer release exists, but a verifiable Windows installer is not available yet.' }
         if (!hasEligibleRelease) return { status: 'no-releases', current, message: 'No compatible NEXUS releases have been published yet.' }
         return { status: 'up-to-date', current }
       } catch (error) {
         return { status: 'error', message: error?.message?.startsWith('GitHub ') || error?.message === 'Update check timed out.' ? error.message : 'Could not check for updates. Check your internet connection and try again.' }
       } finally { checking = false }
     },
+    async download(progress = () => {}) {
+      if (checking || downloading || installing) return { error: 'An update operation is already running.' }
+      if (!available || platform !== 'win32' || !app.isPackaged) return { error: 'Check for an available update first.' }
+      if (prepared) return { success: true, version: prepared.version }
+      downloading = true
+      try {
+        prepared = await download({ net, version: available.version, asset: available.asset, progress })
+        return { success: true, version: prepared.version }
+      } catch (error) { return { error: error?.message || 'Could not download the update.' } }
+      finally { downloading = false }
+    },
+    async install() {
+      if (checking || downloading || installing) return { error: 'An update operation is already running.' }
+      if (!prepared || !available || platform !== 'win32' || !app.isPackaged) return { error: 'Download the update first.' }
+      installing = true
+      try {
+        await verify(prepared)
+        const error = await shell.openPath(prepared.file)
+        if (error) return { error: 'Could not open the installer. NEXUS remains open.' }
+        return { success: true }
+      } catch {
+        const stale = prepared; prepared = null
+        if (stale) await fs.rm(stale.dir, { recursive: true, force: true }).catch(() => {})
+        return { error: 'The installer could not be verified. Download it again.' }
+      } finally { installing = false }
+    },
     async openRelease() {
       if (platform !== 'win32' || !app.isPackaged || !available) return { error: 'Check for an available update first.' }
-      try { await shell.openExternal(`${RELEASE_ROOT}${encodeURIComponent(`v${available}`)}`); return { success: true } }
+      try { await shell.openExternal(`${RELEASE_ROOT}${encodeURIComponent(`v${available.version}`)}`); return { success: true } }
       catch { return { error: 'Could not open the release page in your browser.' } }
     }
   }
