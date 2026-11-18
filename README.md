@@ -38,3 +38,7 @@ The sandbox used to develop this version runs Linux and could not download Elect
 ## Privacy and storage
 
 Categories, setups, shortcuts, and preferences are stored locally. Imported desktop wallpapers and local shortcut-target mappings are stored in the app's user-data directory. Website addresses open only when selected or explicitly opted into activation. There is no NEXUS account, telemetry, or cloud sync. Electron's renderer has Node integration disabled and context isolation enabled; local file targets are resolved only from items chosen through the desktop picker.
+
+## Dependency security
+
+The installer build uses development dependencies that npm audits as well. As of November 2026, `npm audit --omit=dev` reports zero known vulnerabilities; the full audit still reports a high-severity denial-of-service advisory in `picomatch` and the build tools that depend on it ([GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)). There is no patched npm release yet. It concerns processing attacker-controlled glob patterns, not a production dependency; avoid building untrusted projects or accepting untrusted build configurations. The patched `minimatch` is pinned via overrides for the affected Electron builder dependencies; these overrides cross major versions and must be validated against a real Windows installer build. Re-check the full audit as upstream releases fixes. Do not use `npm audit fix --force` without reviewing its breaking dependency changes.
