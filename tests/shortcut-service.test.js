@@ -54,7 +54,8 @@ describe('shortcut safety and desktop service', () => {
     expect(await svc.open('app', chosen.target)).toEqual({ success: true })
     expect(spawnProcess).toHaveBeenCalledWith(executable, [], { detached: true, stdio: 'ignore', shell: false })
     expect(f.shell.openPath).not.toHaveBeenCalled(); expect(child.unref).toHaveBeenCalled()
-    await chmod(executable, 0o644); expect((await svc.open('app', chosen.target)).error).toContain('executable')
+    // Windows does not implement POSIX execute-bit checks, even when mocking the Linux platform.
+    if (process.platform !== 'win32') { await chmod(executable, 0o644); expect((await svc.open('app', chosen.target)).error).toContain('executable') }
   })
   it('on Linux rejects Windows and desktop launcher targets, and reports launch failures', async () => {
     const f = await fixture(); const appFile = path.join(f.dir, 'launcher.desktop')
