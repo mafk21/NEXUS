@@ -2,7 +2,7 @@
   <img src="assets/icon.png" width="112" alt="NEXUS icon">
   <h1>NEXUS</h1>
   <p><strong>A more personal desktop, one setup at a time.</strong></p>
-  <p>A Windows-first desktop app for making space for whatever you're doing.</p>
+  <p>A desktop app for making space for whatever you're doing.</p>
   <p><a href="#make-space-for-your-moments">What it does</a> · <a href="#getting-started">Getting started</a> · <a href="#documentation">Documentation</a> · <a href="CONTRIBUTING.md">Contributing</a></p>
 </div>
 
@@ -17,7 +17,7 @@ Your desktop should feel right for the task at hand. NEXUS organizes your space 
 - **Keep things close:** Add websites, apps, files, and folders as shortcuts. You can choose whether each one opens automatically on activation; it is opt-in and disabled on duplicated shortcuts.
 - **Make it comfortable:** Choose reduced motion and, in the packaged Windows app, whether NEXUS starts when you sign in.
 
-NEXUS is a **desktop app**, not a website. The browser preview is for the interface only and cannot perform Windows desktop actions.
+NEXUS is a **desktop app**, not a website. The browser preview is for the interface only and cannot perform desktop actions. An experimental [Chromebook/Linux version](docs/chromebook.md) is in development; it has not been tested on a Chromebook and does not change the ChromeOS wallpaper.
 
 ## Getting started
 
@@ -42,6 +42,7 @@ For troubleshooting, development commands, and the difference between the browse
 | Guide | What's inside |
 | --- | --- |
 | [Development](docs/development.md) | Setup, commands, project structure, and troubleshooting |
+| [Chromebook / Linux](docs/chromebook.md) | Experimental setup, requirements, and limitations |
 | [Windows verification](docs/windows-testing.md) | Installer, desktop integration, and uninstall checks |
 | [Privacy & storage](docs/privacy.md) | What stays on your device and when NEXUS opens external resources |
 | [Security](SECURITY.md) | Private vulnerability reporting and dependency guidance |

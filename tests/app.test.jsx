@@ -149,6 +149,29 @@ describe('NEXUS interface', () => {
     await user.keyboard('{Escape}')
     await waitFor(() => expect(document.activeElement).toBe(trigger))
   })
+  it('activates Linux setups without applying the system wallpaper and opens only opted-in shortcuts', async () => {
+    window.nexusDesktop = { platform: 'linux', applyWallpaper: vi.fn(), openShortcut: vi.fn().mockResolvedValue({ success: true }) }
+    const user = userEvent.setup(); const view = render(<App />)
+    expect(screen.getByText(/wallpaper is preview-only/)).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Explore Gaming category' }))
+    await user.click(screen.getByRole('button', { name: 'Edit Steam shortcut' })); const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('checkbox', { name: /Open when this setup is activated/ })); await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+    await user.click(screen.getByRole('button', { name: /Activate setup/ }))
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('system wallpaper was not changed'))
+    expect(window.nexusDesktop.applyWallpaper).not.toHaveBeenCalled(); expect(window.nexusDesktop.openShortcut).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(localStorage.getItem(WORKSPACE_KEY)).active.categoryId).toBe('gaming')
+    view.unmount(); render(<App />); expect(screen.getByRole('button', { name: 'Active in NEXUS' }).disabled).toBe(true)
+  })
+  it('reports Linux shortcut failures without falsely claiming wallpaper changed', async () => {
+    window.nexusDesktop = { platform: 'linux', openShortcut: vi.fn().mockResolvedValue({ error: 'Not found' }) }
+    const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Explore Gaming category' }))
+    await user.click(screen.getByRole('button', { name: 'Edit Steam shortcut' })); const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('checkbox', { name: /Open when this setup is activated/ })); await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+    await user.click(screen.getByRole('button', { name: /Activate setup/ }))
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Some shortcuts failed'))
+    expect(screen.getByRole('status').textContent).toContain('system wallpaper was not changed')
+    expect(JSON.parse(localStorage.getItem(WORKSPACE_KEY)).active.categoryId).toBe('gaming')
+  })
   it('updates Windows startup only after the user changes the setting', async () => {
     window.nexusDesktop = { platform: 'win32', getStartup: vi.fn().mockResolvedValue({ available: true, enabled: false }), setStartup: vi.fn().mockResolvedValue({ success: true, enabled: true }) }
     const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Settings' }))

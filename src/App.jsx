@@ -91,7 +91,7 @@ function ShortcutEditor({ dialog, desktop, onCancel, onSubmit }) {
     <form onSubmit={submit}>
       <fieldset className="choice-field shortcut-types"><legend>SHORTCUT TYPE</legend><div>{['website','app','file','folder'].map(value => <button type="button" key={value} className={`type-button ${type === value ? 'chosen' : ''}`} onClick={() => changeType(value)} aria-pressed={type === value}>{value}</button>)}</div></fieldset>
       <label className="field-label" htmlFor="shortcut-label">NAME</label><input className="text-input" id="shortcut-label" value={label} onChange={event => setLabel(event.target.value)} maxLength={60} placeholder="Name this shortcut" autoFocus/>
-      {type === 'website' ? <><label className="field-label target-label" htmlFor="shortcut-url">WEBSITE ADDRESS</label><input className="text-input" id="shortcut-url" value={target} onChange={event => setTarget(event.target.value)} placeholder="https://example.com" maxLength={2048}/></> : <div className="target-select"><span>{target ? 'Target selected' : desktop ? 'Choose an item from your device' : 'Available in the desktop app'}</span><button className="outline-button" type="button" disabled={!desktop?.chooseShortcut || picking} onClick={pick}>{picking ? 'Choosing…' : target ? 'Change' : 'Choose'}</button></div>}
+      {type === 'website' ? <><label className="field-label target-label" htmlFor="shortcut-url">WEBSITE ADDRESS</label><input className="text-input" id="shortcut-url" value={target} onChange={event => setTarget(event.target.value)} placeholder="https://example.com" maxLength={2048}/></> : <div className="target-select"><span>{target ? 'Target selected' : desktop?.platform === 'linux' && type === 'app' ? 'Choose a Linux executable (not a ChromeOS app or .desktop file)' : desktop ? 'Choose an item from your device' : 'Available in the desktop app'}</span><button className="outline-button" type="button" disabled={!desktop?.chooseShortcut || picking} onClick={pick}>{picking ? 'Choosing…' : target ? 'Change' : 'Choose'}</button></div>}
       <label className="auto-check"><input type="checkbox" checked={autoOpen} onChange={event => setAutoOpen(event.target.checked)}/><span><strong>Open when this setup is activated</strong><small>Optional. NEXUS will only open this shortcut when you enable this.</small></span></label>
       {error && <p className="field-error" role="alert">{error}</p>}
       <div className="modal-actions"><button className="secondary-button" type="button" onClick={onCancel}>Cancel</button><button className="primary-button" type="submit">{editing ? 'Save changes' : 'Add shortcut'} <ArrowRight size={16}/></button></div>
@@ -137,6 +137,7 @@ export default function App() {
   const count = workspace.categories.length
   const wallpaper = selected && selectedSetup ? wallpaperFor(selected, selectedSetup) : null
   const desktop = window.nexusDesktop
+  const appliesWallpaper = desktop?.platform === 'win32'
   const setupShortcuts = selected && selectedSetup ? shortcutsFor(selected, selectedSetup) : []
   useEffect(() => {
     let mounted = true
@@ -181,11 +182,13 @@ export default function App() {
     }
     setBusy(true)
     try {
-      const result = await desktop.applyWallpaper(reference)
-      if (result.error || !result.success) { setNotice(`Wallpaper was not applied: ${result.error || 'Unknown error.'}`); return }
+      if (appliesWallpaper) {
+        const result = await desktop.applyWallpaper(reference)
+        if (result.error || !result.success) { setNotice(`Wallpaper was not applied: ${result.error || 'Unknown error.'}`); return }
+      }
       const latestCategory = workspaceRef.current.categories.find(c => c.id === categoryId)
       const latestSetup = latestCategory?.setups.find(s => s.id === setupId)
-      if (!latestSetup || wallpaperFor(latestCategory, latestSetup) !== reference) { setNotice('Windows wallpaper was applied, but this setup changed while applying. Please choose a setup again.'); return }
+      if (!latestSetup || wallpaperFor(latestCategory, latestSetup) !== reference) { setNotice(appliesWallpaper ? 'Windows wallpaper was applied, but this setup changed while applying. Please choose a setup again.' : 'This setup changed while activating. Please choose a setup again.'); return }
       const failed = []
       for (const item of automatic) {
         const currentCategory = workspaceRef.current.categories.find(c => c.id === categoryId)
@@ -197,16 +200,17 @@ export default function App() {
       }
       const finalCategory = workspaceRef.current.categories.find(c => c.id === categoryId)
       const finalSetup = finalCategory?.setups.find(s => s.id === setupId)
-      if (!finalSetup || wallpaperFor(finalCategory, finalSetup) !== reference) { setNotice('Windows wallpaper was applied, but this setup changed while activating. Please choose a setup again.'); return }
-      commit(activateSetup(workspaceRef.current, categoryId, setupId), failed.length ? `${name} is active and wallpaper was applied, but some shortcuts failed: ${failed.join('; ')}` : `${name} is active and its wallpaper was applied to Windows.`)
-    } catch { setNotice('Wallpaper was not applied. The desktop service could not be reached.') }
+      if (!finalSetup || wallpaperFor(finalCategory, finalSetup) !== reference) { setNotice(appliesWallpaper ? 'Windows wallpaper was applied, but this setup changed while activating. Please choose a setup again.' : 'This setup changed while activating. Please choose a setup again.'); return }
+      const message = appliesWallpaper ? `${name} is active and its wallpaper was applied to Windows.` : `${name} is active in NEXUS. The system wallpaper was not changed.`
+      commit(activateSetup(workspaceRef.current, categoryId, setupId), failed.length ? `${message} Some shortcuts failed: ${failed.join('; ')}` : message)
+    } catch { setNotice(appliesWallpaper ? 'Wallpaper was not applied. The desktop service could not be reached.' : 'Could not activate this setup. The desktop service could not be reached.') }
     finally { setBusy(false) }
   }
   function assignWallpaper(categoryId, setupId, reference) {
     const current = workspaceRef.current
     const next = setSetupWallpaper(current, categoryId, setupId, reference)
     if (next === current) { setNotice('This setup no longer exists or the image could not be used.'); return }
-    commit(next, 'Wallpaper saved to this setup. Activate the setup to apply it.')
+    commit(next, desktop?.platform === 'linux' ? 'Wallpaper saved for preview. Change your system wallpaper in ChromeOS settings.' : 'Wallpaper saved to this setup. Activate the setup to apply it.')
   }
   async function chooseWallpaper() {
     if (!selected || !selectedSetup || busy) return
@@ -307,10 +311,10 @@ export default function App() {
         {notice && <div className="notice" role="status"><Sparkles size={15}/>{notice}<button onClick={() => setNotice('')} aria-label="Dismiss message"><X size={15}/></button></div>}
         {selected && selectedSetup ? <section className="hero" aria-label={`${selected.name} ${selectedSetup.name} setup`} key={`${selected.id}-${selectedSetup.id}-${isActive}`} style={{ '--hero-image': previewUrl ? `url("${previewUrl}")` : 'none', '--scene-accent': selectedSetup.color }}>
           <div className="hero-top"><span className="hero-label"><span className="label-dot"/> FEATURED SETUP</span><span className="hero-index">{String(workspace.categories.findIndex(c => c.id === selected.id) + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}</span></div>
-          <div className="hero-content"><div className="hero-category"><Icon name={selectedSetup.icon} size={15}/>{selected.name.toUpperCase()} <span>/</span> {selected.mood || 'YOUR KIND OF SPACE'}</div><h2>Find your<br/><em>{selected.id === 'chill' ? 'slow.' : selected.id === 'gaming' ? 'flow.' : selected.id === 'study' ? 'focus.' : selected.id === 'work' ? 'rhythm.' : 'spark.'}</em></h2><p>{selected.longDescription || 'A space to make entirely your own.'}</p><div className="hero-actions"><button className={`primary-button ${isActive ? 'is-active' : ''}`} onClick={activate} disabled={busy || (isActive && !desktop)}>{busy ? 'Applying…' : isActive ? <><Check size={16}/> {desktop ? 'Apply wallpaper' : 'Active in NEXUS'}</> : <>Activate setup <ArrowRight size={17}/></>}</button><span className="setup-caption"><span>{selectedSetup.name}</span><small>{isActive ? 'Your current selection' : 'Ready when you are'}</small></span></div></div><div className="hero-bottom"><span>DESIGNED FOR YOUR DAY</span><span className="hero-progress"><i/><i/><i/></span><span>YOUR SPACE</span></div>
+          <div className="hero-content"><div className="hero-category"><Icon name={selectedSetup.icon} size={15}/>{selected.name.toUpperCase()} <span>/</span> {selected.mood || 'YOUR KIND OF SPACE'}</div><h2>Find your<br/><em>{selected.id === 'chill' ? 'slow.' : selected.id === 'gaming' ? 'flow.' : selected.id === 'study' ? 'focus.' : selected.id === 'work' ? 'rhythm.' : 'spark.'}</em></h2><p>{selected.longDescription || 'A space to make entirely your own.'}</p><div className="hero-actions"><button className={`primary-button ${isActive ? 'is-active' : ''}`} onClick={activate} disabled={busy || (isActive && !appliesWallpaper)}>{busy ? 'Applying…' : isActive ? <><Check size={16}/> {appliesWallpaper ? 'Apply wallpaper' : 'Active in NEXUS'}</> : <>Activate setup <ArrowRight size={17}/></>}</button><span className="setup-caption"><span>{selectedSetup.name}</span><small>{isActive ? 'Your current selection' : 'Ready when you are'}</small></span></div></div><div className="hero-bottom"><span>DESIGNED FOR YOUR DAY</span><span className="hero-progress"><i/><i/><i/></span><span>YOUR SPACE</span></div>
         </section> : <div className="empty-hero"><span className="empty-icon"><Sparkles size={22}/></span><h2>{selected ? 'A blank canvas, just for you.' : 'Your space starts here.'}</h2><p>{selected ? 'There are no setups in this category yet. Create one to get started.' : 'There are no categories yet. Create one and make it your own.'}</p><button className="primary-button" onClick={() => openDialog({ mode: selected ? 'new-setup' : 'new-category' })}><Plus size={16}/> {selected ? 'Create setup' : 'Create category'}</button></div>}
         {selected && selectedSetup && <section className="wallpaper-panel" aria-label="Wallpaper"><div className="wallpaper-details"><span className="wallpaper-panel-icon"><Sparkles size={17}/></span><div><strong>Make it your backdrop.</strong><p>{previewError ? previewError : 'Choose a wallpaper for this setup. It stays saved with your scene.'}</p></div></div><div className="wallpaper-actions"><button className="outline-button" onClick={chooseWallpaper} disabled={busy}>Choose wallpaper</button><button className="text-button" onClick={() => assignWallpaper(selected.id, selectedSetup.id, `builtin:${selected.image}`)} disabled={busy}>RESET</button></div><input ref={fileInput} type="file" accept="image/png,image/jpeg" hidden onChange={chooseBrowserFile}/></section>}
-        <div className="disclaimer"><span className="disclaimer-icon"><Sparkles size={14}/></span><p><strong>A little heads-up.</strong> {desktop ? 'Activating a setup applies its wallpaper and opens only shortcuts you choose to open automatically.' : 'This is a browser preview: it cannot change your wallpaper or open desktop shortcuts.'}</p></div>
+        <div className="disclaimer"><span className="disclaimer-icon"><Sparkles size={14}/></span><p><strong>A little heads-up.</strong> {!desktop ? 'This is a browser preview: it cannot change your wallpaper or open desktop shortcuts.' : appliesWallpaper ? 'Activating a setup applies its wallpaper and opens only shortcuts you choose to open automatically.' : 'On Linux and Chromebook, wallpaper is preview-only. Change your system wallpaper in ChromeOS settings. Only opted-in shortcuts open on activation.'}</p></div>
         {selected && selectedSetup && <section className="shortcuts-section" aria-label="Shortcuts"><div className="section-heading"><div><div className="eyebrow subtle">THE THINGS YOU NEED, CLOSE BY</div><h3>Your shortcuts <span>✳</span></h3></div><button className="outline-button" onClick={() => openDialog({ mode: 'new-shortcut', categoryId: selected.id, setupId: selectedSetup.id })}><Plus size={15}/> Add shortcut</button></div>
           {setupShortcuts.length === 0 ? <div className="empty-setups">No shortcuts yet. Add an app, file, folder, or website.</div> : <div className="shortcuts-list">{setupShortcuts.map(item => <div className="shortcut-row" key={item.id}><button className="shortcut-open" onClick={() => openShortcut(item)} disabled={busy} aria-label={`Open ${item.label} shortcut`}><span className="shortcut-icon">{item.type === 'website' ? <Link size={17}/> : item.type === 'app' ? <AppWindow size={17}/> : item.type === 'folder' ? <Folder size={17}/> : <File size={17}/>}</span><span className="shortcut-info"><strong>{item.label}</strong><small>{item.type.toUpperCase()}{item.autoOpen ? ' · OPENS ON ACTIVATION' : ''}</small></span><ExternalLink size={14}/></button><div className="setup-actions"><button className="icon-button" onClick={() => openDialog({ mode: 'edit-shortcut', item, categoryId: selected.id, setupId: selectedSetup.id })} aria-label={`Edit ${item.label} shortcut`}><Pencil size={15}/></button><button className="icon-button" onClick={() => openDialog({ mode: 'delete-shortcut', item, categoryId: selected.id, setupId: selectedSetup.id })} aria-label={`Delete ${item.label} shortcut`}><Trash2 size={15}/></button></div></div>)}</div>}
         </section>}
