@@ -6,7 +6,7 @@
   <p><a href="#make-space-for-your-moments">What it does</a> · <a href="#getting-started">Getting started</a> · <a href="#documentation">Documentation</a> · <a href="CONTRIBUTING.md">Contributing</a></p>
 </div>
 
-> **Release candidate — not yet verified on Windows.** The Windows installer has not been successfully built or tested in the development environment. Wallpaper switching, shortcuts, startup, installation, and uninstall behavior still need real Windows testing. There is no verified installer download yet.
+> **Release candidate — Windows installation is not yet verified.** Windows CI has built the installer and smoke-tested the packaged app, but installation, uninstall, wallpaper switching, shortcuts, and startup still need hands-on testing. The installer is unsigned.
 
 ## Make space for your moments
 
@@ -21,7 +21,9 @@ NEXUS is a **desktop app**, not a website. The browser preview is for the interf
 
 ## Getting started
 
-There is no verified installer available yet. To build the release candidate yourself on Windows, install Node.js **22.12 or newer** and Git, then open PowerShell:
+Successful [Windows workflow runs](https://github.com/mafk21/NEXUS/actions/workflows/windows.yml) provide a temporary `NEXUS-Windows-installer` artifact (GitHub sign-in and access may be required). This is not a published release and installation has not been verified.
+
+To build the release candidate yourself on Windows, install Node.js **22.12 or newer** and Git, then open PowerShell:
 
 ```powershell
 git clone https://github.com/mafk21/NEXUS.git
