@@ -179,6 +179,48 @@ describe('NEXUS interface', () => {
     expect(screen.getByRole('status').textContent).toContain('system wallpaper was not changed')
     expect(JSON.parse(localStorage.getItem(WORKSPACE_KEY)).active.categoryId).toBe('gaming')
   })
+  it('asks before a scheduled suggestion can change a Windows setup', async () => {
+    window.nexusDesktop = { platform: 'win32', applyWallpaper: vi.fn().mockResolvedValue({ success: true }) }
+    const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Explore Gaming category' }))
+    const date = new Date(); const current = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+    const card = screen.getByRole('region', { name: 'Setup suggestions' }); await user.clear(within(card).getByLabelText('TIME')); await user.type(within(card).getByLabelText('TIME'), current)
+    await user.click(within(card).getByRole('button', { name: 'Add suggestion' }))
+    const prompt = await screen.findByRole('region', { name: 'Suggested setup change' })
+    expect(window.nexusDesktop.applyWallpaper).not.toHaveBeenCalled(); expect(localStorage.getItem(WORKSPACE_KEY)).toBeNull()
+    await user.click(within(prompt).getByRole('button', { name: 'Switch setup' }))
+    await waitFor(() => expect(window.nexusDesktop.applyWallpaper).toHaveBeenCalledWith('builtin:gaming.png'))
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(WORKSPACE_KEY)).active.categoryId).toBe('gaming'))
+  })
+  it('dismisses a suggestion without changing the setup or calling Windows', async () => {
+    window.nexusDesktop = { platform: 'win32', applyWallpaper: vi.fn().mockResolvedValue({ success: true }) }
+    const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Explore Gaming category' }))
+    const date = new Date(), current = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+    const card = screen.getByRole('region', { name: 'Setup suggestions' }); await user.clear(within(card).getByLabelText('TIME')); await user.type(within(card).getByLabelText('TIME'), current)
+    await user.click(within(card).getByRole('button', { name: 'Add suggestion' }))
+    const prompt = await screen.findByRole('region', { name: 'Suggested setup change' }); await user.click(within(prompt).getByRole('button', { name: 'Not now' }))
+    expect(screen.queryByRole('region', { name: 'Suggested setup change' })).toBeNull(); expect(window.nexusDesktop.applyWallpaper).not.toHaveBeenCalled(); expect(localStorage.getItem(WORKSPACE_KEY)).toBeNull()
+  })
+  it('keeps a profile local and imports shared sites with auto-open disabled', async () => {
+    const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await user.type(screen.getByLabelText('DISPLAY NAME'), 'M'); await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(screen.getByRole('status').textContent).toContain('Local profile saved')
+    await user.click(screen.getByRole('button', { name: 'Open Gaming category' }))
+    await user.click(screen.getByRole('button', { name: 'Share setup' })); let dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('checkbox', { name: /Include my local profile name/ }).checked).toBe(false)
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    const data = { format: 'nexus-setup', version: 1, setup: { name: 'Shared', icon: 'star', color: '#aabbcc', wallpaper: 'builtin:work.png', websites: [{ label: 'Example', url: 'https://example.com/' }] } }
+    const file = new File([JSON.stringify(data)], 'setup.json', { type: 'application/json' })
+    const input = document.querySelector('input[accept=".json,application/json"]'); await user.upload(input, file)
+    dialog = await screen.findByRole('dialog'); expect(dialog.textContent).toContain('Import this setup?')
+    await user.click(within(dialog).getByRole('button', { name: 'Import setup' }))
+    const item = JSON.parse(localStorage.getItem(WORKSPACE_KEY)).categories.find(c => c.id === 'gaming').setups.find(s => s.name === 'Shared')
+    expect(item.shortcuts[0].autoOpen).toBe(false); expect(item.shortcuts[0].target).toBe('https://example.com/')
+  })
+  it('uses Windows media buttons without pretending a media command changes setup', async () => {
+    window.nexusDesktop = { platform: 'win32', sendMediaKey: vi.fn().mockResolvedValue({ success: true }) }
+    const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Play or pause' }))
+    expect(window.nexusDesktop.sendMediaKey).toHaveBeenCalledWith('playPause'); expect(localStorage.getItem(WORKSPACE_KEY)).toBeNull()
+  })
   it('updates Windows startup only after the user changes the setting', async () => {
     window.nexusDesktop = { platform: 'win32', getStartup: vi.fn().mockResolvedValue({ available: true, enabled: false }), setStartup: vi.fn().mockResolvedValue({ success: true, enabled: true }) }
     const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Settings' }))

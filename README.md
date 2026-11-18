@@ -15,7 +15,12 @@ Your desktop should feel right for the task at hand. NEXUS organizes your space 
 - **Start with five categories:** Gaming, Study, Work, Chill, and Custom each have a setup named Default. Create, edit, and delete categories and setups, or duplicate a setup and make it your own.
 - **Set the scene:** Pick a wallpaper and accent color for each setup. On Windows, activation requests a desktop wallpaper change.
 - **Keep things close:** Add websites, apps, files, and folders as shortcuts. You can choose whether each one opens automatically on activation; it is opt-in and disabled on duplicated shortcuts.
+- **In-app widgets:** See the time and active setup on the overview. On Windows, send previous, play/pause and next media keys to a compatible player (track information is not displayed).
+- **Suggestions, not automatic switching:** Add a daily time or Windows app-open suggestion for a setup. NEXUS asks first, and only while the app is running; accepting can open shortcuts you opted in to. App detection can miss short-lived launches.
+- **Share on your terms:** Export and import portable setup files, with an optional local-only profile name. Local app paths and custom images are not included; imported links never open automatically.
 - **Make it comfortable:** Choose reduced motion and, in the packaged Windows app, whether NEXUS starts when you sign in.
+
+**Not yet implemented:** animated Windows desktop wallpapers. The overview widgets live inside NEXUS rather than on the desktop. The new Windows media keys and app-detection integration have automated tests with mocks, but have not yet been verified on a Windows device.
 
 NEXUS is a **desktop app**, not a website. The browser preview is for the interface only and cannot perform desktop actions. An experimental [Chromebook/Linux version](docs/chromebook.md) is in development; it has not been tested on a Chromebook and does not change the ChromeOS wallpaper.
 

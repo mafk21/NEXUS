@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowDownRight, ArrowRight, BookOpen, BriefcaseBusiness, Check, ChevronRight, CircleHelp, Coffee, Copy, Gamepad2, Heart, Link, Folder, File, AppWindow, ExternalLink, LayoutGrid, Moon, Music, Palette, Pencil, Plus, Settings2, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { readReducedMotion, saveReducedMotion } from './scenes.js'
 import { validShortcut, validWebUrl } from './shortcuts.js'
+import useDialogKeyboard from './useDialogKeyboard.js'
+import Moments from './Moments.jsx'
+import Automation from './Automation.jsx'
+import ShareDialog, { ImportDialog } from './ShareDialog.jsx'
+import { readProfile, saveProfile, parseShare } from './sharing.js'
 import { ICONS, COLORS, BROWSER_IMAGE_LIMIT, activateSetup, addCategory, addSetup, cleanName, createId, deleteCategory, deleteSetup, editCategory, editSetup, isWallpaperReference, loadWorkspace, saveWorkspace, setSetupWallpaper, setSetupShortcuts, shortcutsFor, wallpaperFor } from './workspace.js'
 
 const icons = { gamepad: Gamepad2, book: BookOpen, briefcase: BriefcaseBusiness, moon: Moon, sparkles: Sparkles, star: Star, heart: Heart, coffee: Coffee, music: Music, palette: Palette }
@@ -15,23 +20,6 @@ function hasBrowserImageSignature(dataUrl) {
 }
 function Icon({ name, size = 17 }) { const Component = icons[name] || Sparkles; return <Component size={size} strokeWidth={1.7} aria-hidden="true" /> }
 
-function useDialogKeyboard(onCancel) {
-  const ref = useRef(null)
-  useEffect(() => {
-    const onKey = event => {
-      if (event.key === 'Escape') { event.preventDefault(); onCancel(); return }
-      if (event.key !== 'Tab' || !ref.current) return
-      const focusable = [...ref.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]')].filter(element => !element.hidden && element.type !== 'hidden')
-      if (!focusable.length) { event.preventDefault(); return }
-      const first = focusable[0], last = focusable[focusable.length - 1]
-      if (event.shiftKey && (document.activeElement === first || !ref.current.contains(document.activeElement))) { event.preventDefault(); last.focus() }
-      else if (!event.shiftKey && (document.activeElement === last || !ref.current.contains(document.activeElement))) { event.preventDefault(); first.focus() }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
-  return ref
-}
 function Editor({ dialog, onCancel, onSubmit }) {
   const editing = dialog.mode === 'edit-category' || dialog.mode === 'edit-setup'
   const categoryForm = dialog.mode.endsWith('category')
@@ -116,6 +104,13 @@ export default function App() {
   const [workspace, setWorkspace] = useState(initial.workspace)
   const workspaceRef = useRef(initial.workspace)
   const fileInput = useRef(null)
+  const importInput = useRef(null)
+  const [profile, setProfile] = useState(() => readProfile(localStorageOrNull()))
+  const [profileDraft, setProfileDraft] = useState(profile)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [pendingImport, setPendingImport] = useState(null)
+  const [suggestion, setSuggestion] = useState(null)
+  const suggestionRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [previewUrl, setPreviewUrl] = useState('')
   const [previewError, setPreviewError] = useState('')
@@ -172,10 +167,10 @@ export default function App() {
     if (!category) return
     setSelectedId(id); setSelectedSetupId(active?.categoryId === id ? active.setupId : category.setups[0]?.id || null); setPage('category'); setNotice('')
   }
-  async function activate() {
-    if (!selected || !selectedSetup || busy) return
-    const categoryId = selected.id, setupId = selectedSetup.id, name = selectedSetup.name, reference = wallpaper
-    const automatic = isActive ? [] : setupShortcuts.filter(item => item.autoOpen)
+  async function activate(targetCategory = selected, targetSetup = selectedSetup) {
+    if (!targetCategory || !targetSetup || busy) return
+    const categoryId = targetCategory.id, setupId = targetSetup.id, name = targetSetup.name, reference = wallpaperFor(targetCategory, targetSetup)
+    const automatic = workspaceRef.current.active?.categoryId === categoryId && workspaceRef.current.active?.setupId === setupId ? [] : shortcutsFor(targetCategory, targetSetup).filter(item => item.autoOpen)
     if (!desktop) {
       commit(activateSetup(workspaceRef.current, categoryId, setupId), `${name} selected in this browser preview. Your Windows wallpaper was not changed.`)
       return
@@ -265,6 +260,54 @@ export default function App() {
     } catch { setNotice('Could not update the Windows startup setting.') }
     finally { setStartupBusy(false) }
   }
+  function proposeSuggestion(rule) {
+    const current = workspaceRef.current
+    if (current.active?.categoryId === rule.categoryId && current.active?.setupId === rule.setupId) return true
+    if (suggestionRef.current) return false
+    suggestionRef.current = rule; setSuggestion(rule); return true
+  }
+  function dismissSuggestion() { suggestionRef.current = null; setSuggestion(null) }
+  async function acceptSuggestion() {
+    if (!suggestion || busy) return
+    const category = workspaceRef.current.categories.find(c => c.id === suggestion.categoryId)
+    const item = category?.setups.find(s => s.id === suggestion.setupId)
+    dismissSuggestion()
+    if (!category || !item) { setNotice('That suggested setup no longer exists.'); return }
+    setSelectedId(category.id); setSelectedSetupId(item.id); setPage('category')
+    await activate(category, item)
+  }
+  function updateProfile(event) {
+    event.preventDefault(); const name = cleanName(profileDraft)
+    if (saveProfile(localStorageOrNull(), name)) { setProfile(name); setProfileDraft(name); setNotice(name ? 'Local profile saved on this device.' : 'Local profile removed.'); }
+    else setNotice('Could not save your local profile.')
+  }
+  function exportShare(value) {
+    try {
+      const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'nexus-setup.json'; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setShareOpen(false); setNotice('Setup file created. Review it before sharing.')
+    } catch { setNotice('Could not export this setup file.') }
+  }
+  function readShareFile(event) {
+    const file = event.target.files?.[0]; event.target.value = ''
+    if (!file || !selected) return
+    if (file.size > 256000) { setNotice('This setup file is too large.'); return }
+    const categoryId = selected.id, reader = new FileReader()
+    reader.onload = () => { try { setPendingImport({ item: parseShare(reader.result), categoryId }) } catch (error) { setNotice(error.message) } }
+    reader.onerror = () => setNotice('Could not read this setup file.')
+    reader.readAsText(file)
+  }
+  function confirmImport() {
+    if (!pendingImport) return
+    const { item, categoryId } = pendingImport
+    const category = workspaceRef.current.categories.find(c => c.id === categoryId)
+    if (!category) { setNotice('The destination category no longer exists.'); setPendingImport(null); return }
+    const id = createId(), shortcuts = item.websites.map(site => ({ id: createId(), label: site.label, type: 'website', target: site.url, autoOpen: false }))
+    const next = addSetup(workspaceRef.current, categoryId, { ...item, id, shortcuts })
+    if (next === workspaceRef.current) setNotice('Could not import this setup.')
+    else { commit(next, 'Setup imported. Website shortcuts will not open automatically.'); setSelectedId(categoryId); setSelectedSetupId(id); setPage('category') }
+    setPendingImport(null)
+  }
   function toggleMotion() { const next = !reducedMotion; setReducedMotion(next); if (!saveReducedMotion(localStorageOrNull(), next)) setNotice('This preference could not be saved on this device.') }
   function submitEditor(values) {
     if (dialog.mode === 'new-category') {
@@ -316,30 +359,38 @@ export default function App() {
     </aside>
     <main className="main-content">
       <header className="topbar"><div className="breadcrumb"><span>NEXUS</span><ChevronRight size={13}/><strong>{page === 'home' ? 'Overview' : page === 'category' ? selected?.name : page === 'settings' ? 'Settings' : 'About'}</strong></div><div className="topbar-right"><span className="build-badge"><span/> EARLY PREVIEW</span><div className="avatar" aria-label="Your workspace"><Sparkles size={16}/></div></div></header>
+      {suggestion && <div className="content suggestion-prompt-wrap">
+        {suggestion && <div className="suggestion-prompt" role="region" aria-live="polite" aria-label="Suggested setup change"><div><strong>Ready for a different space?</strong><p>{suggestion.type === 'schedule' ? `It’s ${suggestion.time}.` : `${suggestion.process} opened.`} Switch to {workspace.categories.find(c => c.id === suggestion.categoryId)?.name || 'your category'} / {workspace.categories.find(c => c.id === suggestion.categoryId)?.setups.find(s => s.id === suggestion.setupId)?.name || 'your setup'}? Shortcuts you opted to open on activation may also open.</p></div><div><button className="secondary-button" onClick={dismissSuggestion}>Not now</button><button className="primary-button" onClick={acceptSuggestion} disabled={busy}>Switch setup</button></div></div>}
+      </div>}
       {(page === 'home' || page === 'category') && <div className="content">
         <div className="heading-row"><div><div className="eyebrow"><span className="eyebrow-spark">✳</span> A LITTLE SPACE FOR YOU</div><h1>{page === 'home' ? <>Make space for <em>you.</em></> : <>{selected?.name}, <em>your way.</em></>}</h1><p className="intro">{page === 'home' ? 'A different mood for every moment. Find your space and make it yours.' : 'One category, a world of possibility. Make this space your own.'}</p></div>{page === 'category' && selected ? <div className="heading-actions"><button className="outline-button" onClick={() => openDialog({ mode: 'edit-category', item: selected })}><Pencil size={14}/> Edit category</button><button className="icon-button delete-category" onClick={() => openDialog({ mode: 'delete-category', item: selected, isActive: active?.categoryId === selected.id })} aria-label={`Delete ${selected.name} category`}><Trash2 size={16}/></button></div> : <div className="heading-side"><span>YOUR SPACE</span><strong>YOUR RULES <ArrowDownRight size={15}/></strong></div>}</div>
+
         {notice && <div className="notice" role="status"><Sparkles size={15}/>{notice}<button onClick={() => setNotice('')} aria-label="Dismiss message"><X size={15}/></button></div>}
         {selected && selectedSetup ? <section className="hero" aria-label={`${selected.name} ${selectedSetup.name} setup`} key={`${selected.id}-${selectedSetup.id}-${isActive}`} style={{ '--hero-image': previewUrl ? `url("${previewUrl}")` : 'none', '--scene-accent': selectedSetup.color }}>
           <div className="hero-top"><span className="hero-label"><span className="label-dot"/> FEATURED SETUP</span><span className="hero-index">{String(workspace.categories.findIndex(c => c.id === selected.id) + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}</span></div>
-          <div className="hero-content"><div className="hero-category"><Icon name={selectedSetup.icon} size={15}/>{selected.name.toUpperCase()} <span>/</span> {selected.mood || 'YOUR KIND OF SPACE'}</div><h2>Find your<br/><em>{selected.id === 'chill' ? 'slow.' : selected.id === 'gaming' ? 'flow.' : selected.id === 'study' ? 'focus.' : selected.id === 'work' ? 'rhythm.' : 'spark.'}</em></h2><p>{selected.longDescription || 'A space to make entirely your own.'}</p><div className="hero-actions"><button className={`primary-button ${isActive ? 'is-active' : ''}`} onClick={activate} disabled={busy || (isActive && !appliesWallpaper)}>{busy ? 'Applying…' : isActive ? <><Check size={16}/> {appliesWallpaper ? 'Apply wallpaper' : 'Active in NEXUS'}</> : <>Activate setup <ArrowRight size={17}/></>}</button><span className="setup-caption"><span>{selectedSetup.name}</span><small>{isActive ? 'Your current selection' : 'Ready when you are'}</small></span></div></div><div className="hero-bottom"><span>DESIGNED FOR YOUR DAY</span><span className="hero-progress"><i/><i/><i/></span><span>YOUR SPACE</span></div>
+          <div className="hero-content"><div className="hero-category"><Icon name={selectedSetup.icon} size={15}/>{selected.name.toUpperCase()} <span>/</span> {selected.mood || 'YOUR KIND OF SPACE'}</div><h2>Find your<br/><em>{selected.id === 'chill' ? 'slow.' : selected.id === 'gaming' ? 'flow.' : selected.id === 'study' ? 'focus.' : selected.id === 'work' ? 'rhythm.' : 'spark.'}</em></h2><p>{selected.longDescription || 'A space to make entirely your own.'}</p><div className="hero-actions"><button className={`primary-button ${isActive ? 'is-active' : ''}`} onClick={() => activate()} disabled={busy || (isActive && !appliesWallpaper)}>{busy ? 'Applying…' : isActive ? <><Check size={16}/> {appliesWallpaper ? 'Apply wallpaper' : 'Active in NEXUS'}</> : <>Activate setup <ArrowRight size={17}/></>}</button><span className="setup-caption"><span>{selectedSetup.name}</span><small>{isActive ? 'Your current selection' : 'Ready when you are'}</small></span></div></div><div className="hero-bottom"><span>DESIGNED FOR YOUR DAY</span><span className="hero-progress"><i/><i/><i/></span><span>YOUR SPACE</span></div>
         </section> : <div className="empty-hero"><span className="empty-icon"><Sparkles size={22}/></span><h2>{selected ? 'A blank canvas, just for you.' : 'Your space starts here.'}</h2><p>{selected ? 'There are no setups in this category yet. Create one to get started.' : 'There are no categories yet. Create one and make it your own.'}</p><button className="primary-button" onClick={() => openDialog({ mode: selected ? 'new-setup' : 'new-category' })}><Plus size={16}/> {selected ? 'Create setup' : 'Create category'}</button></div>}
         {selected && selectedSetup && <section className="wallpaper-panel" aria-label="Wallpaper"><div className="wallpaper-details"><span className="wallpaper-panel-icon"><Sparkles size={17}/></span><div><strong>Make it your backdrop.</strong><p>{previewError ? previewError : 'Choose a wallpaper for this setup. It stays saved with your scene.'}</p></div></div><div className="wallpaper-actions"><button className="outline-button" onClick={chooseWallpaper} disabled={busy}>Choose wallpaper</button>{desktop?.platform === 'linux' && <button className="outline-button" onClick={exportWallpaper} disabled={busy || !desktop?.exportWallpaper}>Save image</button>}<button className="text-button" onClick={() => assignWallpaper(selected.id, selectedSetup.id, `builtin:${selected.image}`)} disabled={busy}>RESET</button></div><input ref={fileInput} type="file" accept="image/png,image/jpeg" hidden onChange={chooseBrowserFile}/></section>}
         <div className="disclaimer"><span className="disclaimer-icon"><Sparkles size={14}/></span><p><strong>A little heads-up.</strong> {!desktop ? 'This is a browser preview: it cannot change your wallpaper or open desktop shortcuts.' : appliesWallpaper ? 'Activating a setup applies its wallpaper and opens only shortcuts you choose to open automatically.' : 'On Linux and Chromebook, wallpaper is preview-only. Change your system wallpaper in ChromeOS settings. Only opted-in shortcuts open on activation.'}</p></div>
         {selected && selectedSetup && <section className="shortcuts-section" aria-label="Shortcuts"><div className="section-heading"><div><div className="eyebrow subtle">THE THINGS YOU NEED, CLOSE BY</div><h3>Your shortcuts <span>✳</span></h3></div><button className="outline-button" onClick={() => openDialog({ mode: 'new-shortcut', categoryId: selected.id, setupId: selectedSetup.id })}><Plus size={15}/> Add shortcut</button></div>
           {setupShortcuts.length === 0 ? <div className="empty-setups">No shortcuts yet. Add an app, file, folder, or website.</div> : <div className="shortcuts-list">{setupShortcuts.map(item => <div className="shortcut-row" key={item.id}><button className="shortcut-open" onClick={() => openShortcut(item)} disabled={busy} aria-label={`Open ${item.label} shortcut`}><span className="shortcut-icon">{item.type === 'website' ? <Link size={17}/> : item.type === 'app' ? <AppWindow size={17}/> : item.type === 'folder' ? <Folder size={17}/> : <File size={17}/>}</span><span className="shortcut-info"><strong>{item.label}</strong><small>{item.type.toUpperCase()}{item.autoOpen ? ' · OPENS ON ACTIVATION' : ''}</small></span><ExternalLink size={14}/></button><div className="setup-actions"><button className="icon-button" onClick={() => openDialog({ mode: 'edit-shortcut', item, categoryId: selected.id, setupId: selectedSetup.id })} aria-label={`Edit ${item.label} shortcut`}><Pencil size={15}/></button><button className="icon-button" onClick={() => openDialog({ mode: 'delete-shortcut', item, categoryId: selected.id, setupId: selectedSetup.id })} aria-label={`Delete ${item.label} shortcut`}><Trash2 size={15}/></button></div></div>)}</div>}
         </section>}
-        {page === 'category' && selected && <section className="setups-section" aria-label="Setups"><div className="section-heading"><div><div className="eyebrow subtle">YOUR SPACE, YOUR RULES</div><h3>Your setups <span>✳</span></h3></div><button className="outline-button add-setup-button" onClick={() => openDialog({ mode: 'new-setup' })}><Plus size={15}/> Add setup</button></div>
+        {page === 'category' && selected && <section className="setups-section" aria-label="Setups"><div className="section-heading"><div><div className="eyebrow subtle">YOUR SPACE, YOUR RULES</div><h3>Your setups <span>✳</span></h3></div><div className="setup-toolbar"><button className="outline-button" onClick={() => importInput.current?.click()}>Import setup</button><button className="outline-button" onClick={() => setShareOpen(true)} disabled={!selectedSetup}>Share setup</button><button className="outline-button add-setup-button" onClick={() => openDialog({ mode: 'new-setup' })}><Plus size={15}/> Add setup</button></div><input ref={importInput} type="file" accept=".json,application/json" hidden onChange={readShareFile}/></div>
           {selected.setups.length === 0 ? <div className="empty-setups">No setups yet. Add one to make this category yours.</div> : <div className="setup-list">{selected.setups.map(setup => <div className={`setup-row ${setup.id === selectedSetupId ? 'setup-selected' : ''}`} key={setup.id}>
             <button className="setup-select" onClick={() => setSelectedSetupId(setup.id)} aria-label={`View ${setup.name} setup`} aria-pressed={setup.id === selectedSetupId}><span className="setup-icon" style={{ '--setup-color': setup.color }}><Icon name={setup.icon} size={18}/></span><span className="setup-info"><strong>{setup.name}</strong><small>{active?.categoryId === selected.id && active?.setupId === setup.id ? 'ACTIVE SETUP' : 'PERSONAL SETUP'}</small></span>{setup.id === selectedSetupId && <span className="viewing-tag">VIEWING</span>}</button>
             <div className="setup-actions"><button className="icon-button" onClick={() => openDialog({ mode: 'edit-setup', item: setup })} aria-label={`Edit ${setup.name} setup`} title="Edit"><Pencil size={15}/></button><button className="icon-button" onClick={() => openDialog({ mode: 'duplicate-setup', item: setup })} aria-label={`Duplicate ${setup.name} setup`} title="Duplicate"><Copy size={15}/></button><button className="icon-button" onClick={() => openDialog({ mode: 'delete-setup', item: setup, isActive: active?.categoryId === selected.id && active?.setupId === setup.id })} aria-label={`Delete ${setup.name} setup`} title="Delete"><Trash2 size={15}/></button></div>
           </div>)}</div>}
         </section>}
+        <Moments activeCategory={workspace.categories.find(c => c.id === active?.categoryId)} activeSetup={workspace.categories.find(c => c.id === active?.categoryId)?.setups.find(s => s.id === active?.setupId)} desktop={desktop} onNotice={setNotice}/>
         <div className="section-heading"><div><div className="eyebrow subtle">A SPACE FOR EVERY SIDE OF YOU</div><h3>Explore your categories <span>✳</span></h3></div><span className="section-count">{String(count).padStart(2, '0')} {count === 1 ? 'CATEGORY' : 'CATEGORIES'} <ArrowRight size={14}/></span></div>
         <div className="category-grid">{workspace.categories.map((category, index) => <button className={`category-card ${selectedId === category.id ? 'card-selected' : ''}`} key={category.id} onClick={() => selectCategory(category.id)} aria-label={`Explore ${category.name} category`} aria-pressed={page === 'category' && selectedId === category.id}><div className="card-art" style={{ backgroundImage: `linear-gradient(180deg, transparent 30%, rgba(14,15,23,.75)), url("${wallpaperUrl(category.image)}")` }}><span className="card-number">{String(index + 1).padStart(2, '0')}</span>{active?.categoryId === category.id && <span className="card-active"><span/> ACTIVE</span>}<span className="card-icon"><Icon name={category.icon} size={18}/></span></div><div className="card-copy"><div className="card-title"><strong>{category.name}</strong><ArrowDownRight size={16}/></div><p>{category.description || 'Your space, your way.'}</p><span className="setup-count">{category.setups.length} {category.setups.length === 1 ? 'SETUP' : 'SETUPS'}</span></div></button>)}</div>
-        <div className="lower-note"><div><span className="lower-icon"><WandSparkles size={17}/></span><div><strong>It’s all yours.</strong><p>Create a category or open one to make your own setups.</p></div></div><button className="text-button" onClick={() => openDialog({ mode: 'new-category' })}>NEW CATEGORY <ArrowRight size={14}/></button></div><footer><span>YOUR SPACE. YOUR MODE. YOUR WAY.</span><span>MADE WITH INTENTION <span>✳</span></span></footer>
+        <div className="lower-note"><div><span className="lower-icon"><WandSparkles size={17}/></span><div><strong>It’s all yours.</strong><p>Create a category or open one to make your own setups.</p></div></div><button className="text-button" onClick={() => openDialog({ mode: 'new-category' })}>NEW CATEGORY <ArrowRight size={14}/></button></div>
       </div>}
-      {(page === 'settings' || page === 'about') && <div className="content secondary-page"><div className="eyebrow"><span className="eyebrow-spark">✳</span> {page === 'settings' ? 'MAKE IT COMFORTABLE' : 'A LITTLE INTRODUCTION'}</div><h1>{page === 'settings' ? <>A little more <em>you.</em></> : <>Meet <em>NEXUS.</em></>}</h1>{page === 'settings' ? <><p className="intro">The little details matter. Make NEXUS feel right for you.</p><section className="settings-card"><div><span className="setting-icon"><Sparkles size={19}/></span><div><h3>Reduce motion</h3><p>Keep transitions subtle throughout the app.</p></div></div><button className={`toggle ${reducedMotion ? 'on' : ''}`} role="switch" aria-checked={reducedMotion} aria-label="Reduce motion" onClick={toggleMotion}><span/></button></section><section className="settings-card startup-card"><div><span className="setting-icon"><AppWindow size={19}/></span><div><h3>Start with Windows</h3><p>{startup.available ? 'Open NEXUS when you sign in.' : startup.reason}</p></div></div><button className={`toggle ${startup.enabled ? 'on' : ''}`} role="switch" aria-checked={!!startup.enabled} aria-label="Start with Windows" disabled={!startup.available || startupBusy} onClick={toggleStartup}><span/></button></section><p className="settings-hint">More personalization will arrive as NEXUS grows.</p>{notice && <div className="notice" role="status">{notice}</div>}</> : <><p className="intro">Your space. Your mode. Your way.</p><section className="about-card"><span className="about-symbol">✳</span><div className="eyebrow subtle">BUILT FOR THE MOMENTS IN BETWEEN</div><h2>A little space for <em>everything you do.</em></h2><p>NEXUS brings your different worlds together in one considered space. Create categories and setups that feel like you.</p><div className="about-meta"><span>VERSION 1.0 RC</span><span>WINDOWS FIRST</span><span>MADE FOR YOU</span></div></section></>}</div>}
+      {(page === 'settings' || page === 'about') && <div className="content secondary-page"><div className="eyebrow"><span className="eyebrow-spark">✳</span> {page === 'settings' ? 'MAKE IT COMFORTABLE' : 'A LITTLE INTRODUCTION'}</div><h1>{page === 'settings' ? <>A little more <em>you.</em></> : <>Meet <em>NEXUS.</em></>}</h1>{page === 'settings' ? <><p className="intro">The little details matter. Make NEXUS feel right for you.</p><section className="settings-card"><div><span className="setting-icon"><Sparkles size={19}/></span><div><h3>Reduce motion</h3><p>Keep transitions subtle throughout the app.</p></div></div><button className={`toggle ${reducedMotion ? 'on' : ''}`} role="switch" aria-checked={reducedMotion} aria-label="Reduce motion" onClick={toggleMotion}><span/></button></section><section className="settings-card startup-card"><div><span className="setting-icon"><AppWindow size={19}/></span><div><h3>Start with Windows</h3><p>{startup.available ? 'Open NEXUS when you sign in.' : startup.reason}</p></div></div><button className={`toggle ${startup.enabled ? 'on' : ''}`} role="switch" aria-checked={!!startup.enabled} aria-label="Start with Windows" disabled={!startup.available || startupBusy} onClick={toggleStartup}><span/></button></section><section className="profile-card"><div className="eyebrow subtle">JUST FOR THIS DEVICE</div><h3>Your local profile</h3><p>Optional. No account or sign-in. Your name stays here unless you choose to include it in a shared setup.</p><form onSubmit={updateProfile}><label htmlFor="profile-name">DISPLAY NAME</label><div><input id="profile-name" className="text-input" value={profileDraft} maxLength={60} onChange={e => setProfileDraft(e.target.value)} placeholder="Add a name, if you like"/><button className="outline-button" type="submit">Save</button></div></form></section><p className="settings-hint">More personalization will arrive as NEXUS grows.</p>{notice && <div className="notice" role="status">{notice}</div>}</> : <><p className="intro">Your space. Your mode. Your way.</p><section className="about-card"><span className="about-symbol">✳</span><div className="eyebrow subtle">BUILT FOR THE MOMENTS IN BETWEEN</div><h2>A little space for <em>everything you do.</em></h2><p>NEXUS brings your different worlds together in one considered space. Create categories and setups that feel like you.</p><div className="about-meta"><span>VERSION 1.0 RC</span><span>WINDOWS FIRST</span><span>MADE FOR YOU</span></div></section></>}</div>}
+      <div className="content suggestions-wrap" hidden={page !== 'home' && page !== 'category'}><Automation selected={selected} setup={selectedSetup} workspace={workspace} desktop={desktop} onSuggestion={proposeSuggestion}/><footer><span>YOUR SPACE. YOUR MODE. YOUR WAY.</span><span>MADE WITH INTENTION <span>✳</span></span></footer></div>
     </main>
+    {shareOpen && selected && selectedSetup && <ShareDialog category={selected} setup={selectedSetup} shortcuts={setupShortcuts} profile={profile} onCancel={() => setShareOpen(false)} onExport={exportShare}/>}
+    {pendingImport && workspace.categories.find(c => c.id === pendingImport.categoryId) && <ImportDialog item={pendingImport.item} category={workspace.categories.find(c => c.id === pendingImport.categoryId)} onCancel={() => setPendingImport(null)} onImport={confirmImport}/>}
     {dialog && (dialog.mode.startsWith('delete-') ? <ConfirmDelete dialog={dialog} onCancel={closeDialog} onConfirm={confirmDelete}/> : dialog.mode.endsWith('-shortcut') ? <ShortcutEditor key={`${dialog.mode}-${dialog.item?.id || 'new'}`} dialog={dialog} desktop={desktop} onCancel={closeDialog} onSubmit={submitShortcut}/> : <Editor key={`${dialog.mode}-${dialog.item?.id || 'new'}`} dialog={dialog} onCancel={closeDialog} onSubmit={submitEditor}/>)}
   </div>
 }
