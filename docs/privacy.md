@@ -12,6 +12,6 @@ Local data can reveal your setup names, URLs, file paths, or images to someone w
 
 ## External actions
 
-A shortcut opens when you choose it or explicitly enable opening on setup activation. Website shortcuts use your system's default handler, and the websites you visit may collect data under their own policies. App, file, and folder shortcuts launch through your operating system. Starter links do not open automatically by default, and copied shortcuts have automatic opening disabled.
+A shortcut opens when you choose it or explicitly enable opening on setup activation. Website shortcuts use your system's default handler, and the websites you visit may collect data under their own policies. App, file, and folder shortcuts launch through your operating system. On Linux, a selected `.desktop` launcher may execute the commands it contains; choose only files you trust. Starter links do not open automatically by default, and copied shortcuts have automatic opening disabled.
 
 Changing wallpaper and startup settings affects Windows itself. The browser preview cannot perform these desktop actions. Downloading dependencies and building the installer also involves network access to third-party services; see [development](development.md).

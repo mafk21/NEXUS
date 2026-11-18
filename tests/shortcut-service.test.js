@@ -57,16 +57,27 @@ describe('shortcut safety and desktop service', () => {
     // Windows does not implement POSIX execute-bit checks, even when mocking the Linux platform.
     if (process.platform !== 'win32') { await chmod(executable, 0o644); expect((await svc.open('app', chosen.target)).error).toContain('executable') }
   })
-  it('on Linux rejects Windows and desktop launcher targets, and reports launch failures', async () => {
+  it('on Linux rejects Windows app targets and reports launch failures', async () => {
     const f = await fixture(); const appFile = path.join(f.dir, 'launcher.desktop')
     await writeFile(appFile, ''); await chmod(appFile, 0o755)
     const svc = createShortcutService({ ...f, platform: 'linux', spawnProcess: () => { throw new Error('Launch failed') }, getWindow: () => ({}) })
-    f.dialog.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [appFile] })
-    expect((await svc.choose('app')).error).toContain('.desktop')
     f.dialog.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [f.exe] })
     expect((await svc.choose('app')).error).toContain('.exe')
     await chmod(f.file, 0o755); f.dialog.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [f.file] })
     const chosen = await svc.choose('app'); expect((await svc.open('app', chosen.target)).error).toContain('Launch failed')
+  })
+  it('opens explicitly chosen Linux desktop launchers using gio, and reports gio errors', async () => {
+    const f = await fixture(); const launcher = path.join(f.dir, 'app; no shell.desktop')
+    await writeFile(launcher, '[Desktop Entry]\nType=Application\nName=Example\nExec=example\n')
+    f.dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [launcher] })
+    const execute = vi.fn().mockResolvedValue({ stdout: '', stderr: '' })
+    const svc = createShortcutService({ ...f, platform: 'linux', execute, getWindow: () => ({}) })
+    const chosen = await svc.choose('app'); expect(chosen.target).toMatch(/^pick:/)
+    expect(await svc.open('app', chosen.target)).toEqual({ success: true })
+    expect(execute).toHaveBeenCalledWith('gio', ['launch', launcher], { timeout: 15000 })
+    execute.mockRejectedValueOnce(new Error('Could not launch'))
+    expect((await svc.open('app', chosen.target)).error).toContain('Could not launch')
+    expect((await svc.open('app', 'pick:00000000-0000-0000-0000-000000000000')).error).toContain('not found')
   })
   it('refuses invalid app targets, invalid type and corrupt registry', async () => {
     const f = await fixture(); const svc = createShortcutService({ ...f, getWindow: () => ({}) })

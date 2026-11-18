@@ -17,6 +17,7 @@ function requireSender(event) {
 }
 ipcMain.handle('wallpaper:choose', event => { requireSender(event); return wallpaper.choose() })
 ipcMain.handle('wallpaper:preview', (event, reference) => { requireSender(event); return wallpaper.preview(reference) })
+ipcMain.handle('wallpaper:export', (event, reference) => { requireSender(event); return wallpaper.exportImage(reference) })
 ipcMain.handle('wallpaper:apply', (event, reference) => { requireSender(event); return wallpaper.apply(reference) })
 ipcMain.handle('shortcut:choose', (event, type) => { requireSender(event); return shortcuts.choose(type) })
 ipcMain.handle('shortcut:open', (event, type, target) => { requireSender(event); return shortcuts.open(type, target) })

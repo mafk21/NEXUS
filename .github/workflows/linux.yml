@@ -6,6 +6,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            deb_arch: amd64
+          - arch: arm64
+            deb_arch: arm64
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,15 +22,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Build x64 Debian package
+      - name: Build ${{ matrix.arch }} Debian package
         shell: bash
         run: |
           set -o pipefail
-          npm run dist:linux -- --x64 2>&1 | tee "$RUNNER_TEMP/nexus-linux-build.log" || {
+          npm run dist:linux -- --${{ matrix.arch }} 2>&1 | tee "$RUNNER_TEMP/nexus-linux-build.log" || {
             tail -n 40 "$RUNNER_TEMP/nexus-linux-build.log"
             exit 1
           }
-      - name: Check package and smoke test unpacked application
+      - name: Check package architecture
         shell: bash
         run: |
           set -euo pipefail
@@ -30,6 +38,13 @@ jobs:
           packages=(release/*.deb)
           test "${#packages[@]}" -eq 1
           dpkg-deb --info "${packages[0]}"
+          test "$(dpkg-deb -f "${packages[0]}" Architecture)" = "${{ matrix.deb_arch }}"
+          dpkg-deb -f "${packages[0]}" Depends | grep -q "libglib2.0-bin"
+      - name: Smoke test unpacked x64 application
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          set -euo pipefail
           exe=$(find release/linux-unpacked -maxdepth 1 -type f -iname nexus -print -quit)
           if [ -z "$exe" ]; then
             echo "::error::Packaged NEXUS executable not found"
@@ -45,6 +60,6 @@ jobs:
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: NEXUS-Linux-x64-deb
+          name: NEXUS-Linux-${{ matrix.arch }}-deb
           path: release/*.deb
           if-no-files-found: error

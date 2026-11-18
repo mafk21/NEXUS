@@ -41,6 +41,20 @@ function createWallpaperService({ app, dialog, nativeImage, getWindow, platform 
         return { dataUrl: `data:image/${ext === 'jpg' ? 'jpeg' : 'png'};base64,${buffer.toString('base64')}` }
       } catch (error) { return { error: safeError(error) } }
     },
+    async exportImage(reference) {
+      try {
+        const { buffer, ext } = await readImage(resolveWallpaperPath(reference, directories()))
+        const result = await dialog.showSaveDialog(getWindow(), {
+          title: 'Save wallpaper image', defaultPath: `NEXUS-wallpaper.${ext}`,
+          filters: [{ name: ext === 'png' ? 'PNG image' : 'JPEG image', extensions: ext === 'png' ? ['png'] : ['jpg', 'jpeg'] }]
+        })
+        if (result.canceled || !result.filePath) return { canceled: true }
+        if (!path.isAbsolute(result.filePath)) throw new Error('Choose a valid destination.')
+        if (!new RegExp(ext === 'png' ? '\\.png$' : '\\.(jpg|jpeg)$', 'i').test(result.filePath)) throw new Error('Choose a filename matching the image format.')
+        await fs.writeFile(result.filePath, buffer)
+        return { success: true }
+      } catch (error) { return { error: safeError(error) } }
+    },
     async apply(reference) {
       if (platform !== 'win32') return { error: 'Applying wallpapers is currently available on Windows only.' }
       try {

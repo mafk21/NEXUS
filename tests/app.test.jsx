@@ -162,6 +162,13 @@ describe('NEXUS interface', () => {
     expect(JSON.parse(localStorage.getItem(WORKSPACE_KEY)).active.categoryId).toBe('gaming')
     view.unmount(); render(<App />); expect(screen.getByRole('button', { name: 'Active in NEXUS' }).disabled).toBe(true)
   })
+  it('lets Linux users save their preview image for manual wallpaper selection', async () => {
+    window.nexusDesktop = { platform: 'linux', exportWallpaper: vi.fn().mockResolvedValue({ success: true }) }
+    const user = userEvent.setup(); render(<App />)
+    await user.click(screen.getByRole('button', { name: 'Save image' }))
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('ChromeOS wallpaper settings'))
+    expect(window.nexusDesktop.exportWallpaper).toHaveBeenCalledWith('builtin:dusk.png')
+  })
   it('reports Linux shortcut failures without falsely claiming wallpaper changed', async () => {
     window.nexusDesktop = { platform: 'linux', openShortcut: vi.fn().mockResolvedValue({ error: 'Not found' }) }
     const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Explore Gaming category' }))
