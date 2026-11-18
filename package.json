@@ -40,7 +40,8 @@
       ],
       "icon": "assets/icon.png",
       "category": "Utility",
-      "maintainer": "NEXUS Contributors"
+      "maintainer": "NEXUS Contributors",
+      "executableName": "nexus"
     }
   },
   "dependencies": {
