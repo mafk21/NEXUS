@@ -4,6 +4,12 @@ This file records notable changes to NEXUS. It does not imply that an installer 
 
 ## Unreleased
 
+- Add in-app time, active setup and Windows system media-key widgets.
+- Add consent-first daily time and Windows app-open suggestions, optional local profile, and portable setup file sharing.
+- Animated desktop wallpapers remain unimplemented; new Windows integrations need physical-device verification.
+
+## Unreleased
+
 - Add experimental Linux desktop support and Debian builds targeting amd64 and arm64 Chromebooks, with wallpaper export and Linux launcher shortcuts. ChromeOS wallpaper switching and Linux startup remain unsupported; Chromebook testing is outstanding.
 
 - Disable implicit publishing during installer builds; Windows CI builds and uploads an installer artifact without a GitHub publishing token.

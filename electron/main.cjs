@@ -8,10 +8,14 @@ if (smokeTest) app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'ne
 const { createWallpaperService } = require('./wallpaper-service.cjs')
 const { createShortcutService } = require('./shortcut-service.cjs')
 const { createStartupService } = require('./startup-service.cjs')
+const { createProcessService } = require('./process-service.cjs')
+const { createMediaService } = require('./media-service.cjs')
 let mainWindow
 const wallpaper = createWallpaperService({ app, dialog, nativeImage, getWindow: () => mainWindow })
 const shortcuts = createShortcutService({ app, shell, dialog, getWindow: () => mainWindow })
 const startup = createStartupService({ app })
+const processes = createProcessService()
+const media = createMediaService()
 function requireSender(event) {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) throw new Error('Unauthorized request.')
 }
@@ -21,6 +25,8 @@ ipcMain.handle('wallpaper:export', (event, reference) => { requireSender(event);
 ipcMain.handle('wallpaper:apply', (event, reference) => { requireSender(event); return wallpaper.apply(reference) })
 ipcMain.handle('shortcut:choose', (event, type) => { requireSender(event); return shortcuts.choose(type) })
 ipcMain.handle('shortcut:open', (event, type, target) => { requireSender(event); return shortcuts.open(type, target) })
+ipcMain.handle('media:send', (event, command) => { requireSender(event); return media.send(command) })
+ipcMain.handle('processes:list', event => { requireSender(event); return processes.list() })
 ipcMain.handle('startup:get', event => { requireSender(event); return startup.get() })
 ipcMain.handle('startup:set', (event, enabled) => { requireSender(event); return startup.set(enabled) })
 function createWindow() {

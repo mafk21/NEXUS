@@ -27,3 +27,15 @@ The GitHub Actions workflow builds an installer and smoke-tests the unpacked app
 Test the update and uninstall paths on a test account or machine. Verify the startup entry is removed on uninstall and check what user data remains; do not assume either behavior until observed. The app may leave locally stored user data behind. Back up anything important before testing.
 
 Record failures, Windows and Node versions, commands, and actual results. Remove private details from logs before sharing them.
+
+## New features to verify on a Windows device
+
+- Add a time suggestion for a non-active setup and verify the prompt appears without changing wallpaper or opening shortcuts. Dismiss it and verify nothing changes; on a later suggestion, confirm and verify only then that wallpaper and any opted-in shortcuts change. Test while Settings is open too.
+- Add an app suggestion using an executable filename, start the program after the first scan, and allow at least 15 seconds. Verify the prompt and both decisions as above. Programs already open at the first scan and short-lived processes are not reliably detected. Verify error behavior if `tasklist.exe` is restricted.
+- With a compatible music player open, try previous, play/pause, and next on Overview. Test with more than one player; Windows chooses which session receives media keys. Verify graceful error handling if PowerShell is restricted.
+- Export a setup containing local paths, a custom wallpaper, and a website. Inspect the file for absence of paths and image; import it into a category and verify that no shortcuts auto-open and activation was not changed. Verify the optional profile is omitted unless selected.
+- These checks are not yet verified on physical Windows. Animated desktop wallpaper is not implemented.
+
+### Animated wallpaper research
+
+[Flowing Light Backgrounds](https://github.com/Lampe332/flowing-light-backgrounds) lists looping Cosmic Violet and Marble Gold videos under CC0 1.0. They have not been bundled or integrated. A reliable Windows desktop video host (including multi-monitor handling, performance, cleanup, and fallback to a static wallpaper) still needs to be built and tested; playing a video inside NEXUS would not be the same feature.
