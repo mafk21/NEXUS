@@ -1,0 +1,33 @@
+/* NEXUS visual layer: tactile surfaces and restrained, purposeful motion. */
+.app-shell{background:radial-gradient(ellipse at 72% -15%,#292038 0,transparent 42%),#0c0d12}
+.sidebar{background:linear-gradient(170deg,#18151e 0,#101116 47%,#111017);border-right-color:#ffffff0d;box-shadow:8px 0 35px #05040725}
+.brand-mark{filter:drop-shadow(0 0 8px #ae89f366)}
+.nav-item,.add-category,.icon-button,.outline-button,.secondary-button,.primary-button,.type-button,.setup-row,.shortcut-row,.media-actions button{transition:background .22s ease,border-color .22s ease,color .22s ease,transform .22s ease,box-shadow .22s ease}
+.nav-item.selected{background:linear-gradient(100deg,#46374d99,#25222e 82%);box-shadow:inset 2px 0 #c4a3e9}
+.nav-item:hover:not(.selected){transform:translateX(2px)}
+.topbar{background:linear-gradient(90deg,#11101799,#16121b66);border-bottom-color:#ffffff0d}
+.content{animation:nexus-arrive .5s cubic-bezier(.2,.8,.2,1) both}
+.heading-row h1,.secondary-page h1{letter-spacing:-.06em}.heading-row h1 em,.secondary-page h1 em{color:#d9c3f1}
+.hero{border-color:#ffffff30;border-radius:19px;box-shadow:0 15px 40px #0003,inset 0 1px #ffffff22}
+.hero:before{transition:transform .8s cubic-bezier(.2,.7,.2,1),filter .8s;transform:scale(1.015)}
+.hero:hover:before{transform:scale(1.045)}
+.hero:after{content:'';position:absolute;inset:0;border:1px solid #ffffff12;border-radius:inherit;pointer-events:none}
+.hero-label{border-radius:20px;background:#17131bbb;backdrop-filter:blur(12px);box-shadow:inset 0 1px #ffffff22}
+.hero-content h2{text-shadow:0 5px 25px #0006}
+.hero-progress i{border-radius:2px}.hero-progress i:first-child{width:34px;background:var(--scene-accent,#e5d7f1);box-shadow:0 0 10px var(--scene-accent,#e5d7f1)}
+.primary-button{border-radius:9px;box-shadow:inset 0 1px #ffffff8c,0 6px 20px #0002}.primary-button:hover:not(:disabled){box-shadow:inset 0 1px #fff,0 8px 24px #d7b4fb2a}
+.category-card{border-radius:14px;background:linear-gradient(160deg,#1d1b25,#16161d);box-shadow:0 5px 18px #0002;transition:transform .3s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .3s}
+.category-card:hover{transform:translateY(-5px);border-color:#b39ac5;box-shadow:0 14px 28px #0005,0 0 0 1px #b39ac51c}
+.category-card.card-selected{border-color:#c4a9d1;box-shadow:0 0 0 1px #c4a9d133,0 8px 22px #0003}
+.card-art{overflow:hidden;isolation:isolate}.card-art:after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,#ffffff1a,transparent 45%);opacity:.6;transition:opacity .3s}.category-card:hover .card-art:after{opacity:1}.card-icon,.card-number,.card-active{z-index:1}.card-icon{border-radius:10px;background:#201827a8;box-shadow:0 4px 12px #0005}.card-title svg{transition:transform .25s,color .25s}.category-card:hover .card-title svg{transform:translate(3px,3px);color:#e2caeb}
+.moment-clock,.moment-active,.moment-media,.wallpaper-panel,.settings-card,.suggestion-card,.profile-card,.update-card,.about-card{box-shadow:inset 0 1px #ffffff0d,0 8px 25px #0002}
+.moment-active,.moment-media{isolation:isolate}.moment-orb{animation:nexus-float 7s ease-in-out infinite alternate;z-index:-1}
+.setup-row:hover,.shortcut-row:hover{border-color:#71617a;background:#201c26}.media-actions button:hover:not(:disabled){transform:translateY(-2px)}
+.modal-backdrop{animation:nexus-backdrop .22s ease both}.modal{animation:nexus-modal-in .3s cubic-bezier(.2,.8,.2,1) both;box-shadow:0 24px 80px #000c,inset 0 1px #ffffff18}
+@keyframes nexus-arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes nexus-modal-in{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes nexus-backdrop{from{opacity:0}to{opacity:1}}
+@keyframes nexus-float{from{transform:translate(0,0) scale(1)}to{transform:translate(-8px,-8px) scale(1.06)}}
+/* Both the operating system and the in-app preference apply to all motion. */
+.reduce-motion *, .reduce-motion *::before,.reduce-motion *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+@media(prefers-reduced-motion:reduce){.app-shell *,.app-shell *::before,.app-shell *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
