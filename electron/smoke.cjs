@@ -1,5 +1,5 @@
 // Packaged-app smoke test used on CI runners. No wallpaper or shortcuts are launched.
-async function runSmokeTest(window, app) {
+async function runSmokeTest(window, app, testNotch = async () => {}) {
   const timeout = setTimeout(() => app.exit(1), 30000)
   try {
     const check = expression => window.webContents.executeJavaScript(`new Promise((resolve, reject) => { let tries = 0; const check = () => { try { if (${expression}) return resolve(true); } catch {} if (++tries > 100) return reject(new Error('Smoke check failed')); setTimeout(check, 100); }; check(); })`)
@@ -9,6 +9,7 @@ async function runSmokeTest(window, app) {
     window.webContents.reload()
     await loaded
     await check("!!document.querySelector('[aria-label=\"Gaming Default setup\"]')")
+    await testNotch()
     clearTimeout(timeout); app.exit(0)
   } catch (error) {
     console.error('NEXUS smoke test failed:', error)

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '../src/App.jsx'
 import { WORKSPACE_KEY } from '../src/workspace.js'
+import { AUTOMATION_KEY } from '../src/automation.js'
 import '../src/styles.css'
 
 afterEach(() => { cleanup(); localStorage.clear(); delete window.nexusDesktop; vi.restoreAllMocks() })
@@ -220,6 +221,42 @@ describe('NEXUS interface', () => {
     window.nexusDesktop = { platform: 'win32', sendMediaKey: vi.fn().mockResolvedValue({ success: true }) }
     const user = userEvent.setup(); render(<App />); await user.click(screen.getByRole('button', { name: 'Play or pause' }))
     expect(window.nexusDesktop.sendMediaKey).toHaveBeenCalledWith('playPause'); expect(localStorage.getItem(WORKSPACE_KEY)).toBeNull()
+  })
+  it('handles notch actions against the current active workspace and persists the notch setting', async () => {
+    let handler
+    window.nexusDesktop = { platform: 'win32', setNotchEnabled: vi.fn().mockResolvedValue({ success: true }), updateNotch: vi.fn(), onNotchAction: vi.fn(callback => { handler = callback; return () => {} }), applyWallpaper: vi.fn().mockResolvedValue({ success: true }), openShortcut: vi.fn().mockResolvedValue({ success: true }) }
+    const user = userEvent.setup(); render(<App />)
+    await waitFor(() => expect(window.nexusDesktop.setNotchEnabled).toHaveBeenCalledWith(true))
+    const snapshot = window.nexusDesktop.updateNotch.mock.lastCall[0]
+    expect(snapshot.categories).toHaveLength(5); expect(JSON.stringify(snapshot)).not.toContain('target')
+    await act(async () => handler({ type: 'shortcut', categoryId: 'gaming', setupId: 'default-gaming', shortcutId: 'starter-gaming' }))
+    expect(window.nexusDesktop.openShortcut).not.toHaveBeenCalled()
+    await act(async () => handler({ type: 'activate', categoryId: 'gaming', setupId: 'default-gaming' }))
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(WORKSPACE_KEY)).active.categoryId).toBe('gaming'))
+    expect(window.nexusDesktop.applyWallpaper).toHaveBeenCalledWith('builtin:gaming.png')
+    await act(async () => handler({ type: 'shortcut', categoryId: 'gaming', setupId: 'default-gaming', shortcutId: 'starter-gaming' }))
+    await waitFor(() => expect(window.nexusDesktop.openShortcut).toHaveBeenCalledWith('website', 'https://store.steampowered.com/'))
+    await user.click(screen.getByRole('button', { name: 'Settings' })); await user.click(screen.getByRole('switch', { name: 'Floating notch' }))
+    expect(localStorage.getItem('nexus.notch.enabled.v1')).toBe('false'); expect(window.nexusDesktop.setNotchEnabled).toHaveBeenCalledWith(false)
+  })
+  it('does not switch for a suggestion until the notch confirms the current rule', async () => {
+    const now = new Date(), time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    localStorage.setItem(AUTOMATION_KEY, JSON.stringify([{ id: 'rule', categoryId: 'gaming', setupId: 'default-gaming', enabled: true, type: 'schedule', time }]))
+    let handler
+    window.nexusDesktop = { platform: 'win32', updateNotch: vi.fn(), onNotchAction: vi.fn(callback => { handler = callback; return () => {} }), applyWallpaper: vi.fn().mockResolvedValue({ success: true }) }
+    render(<App />)
+    await waitFor(() => expect(window.nexusDesktop.updateNotch.mock.calls.some(([state]) => state.suggestion?.id === 'rule')).toBe(true))
+    expect(window.nexusDesktop.applyWallpaper).not.toHaveBeenCalled()
+    await act(async () => handler({ type: 'accept-suggestion', ruleId: 'old' }))
+    expect(window.nexusDesktop.applyWallpaper).not.toHaveBeenCalled()
+    await act(async () => handler({ type: 'accept-suggestion', ruleId: 'rule' }))
+    await waitFor(() => expect(window.nexusDesktop.applyWallpaper).toHaveBeenCalledWith('builtin:gaming.png'))
+  })
+  it('does not allow a stale notch suggestion to activate a setup', async () => {
+    let handler
+    window.nexusDesktop = { platform: 'win32', onNotchAction: vi.fn(callback => { handler = callback; return () => {} }), applyWallpaper: vi.fn() }
+    render(<App />); await act(async () => handler({ type: 'accept-suggestion', ruleId: 'not-current' }))
+    expect(window.nexusDesktop.applyWallpaper).not.toHaveBeenCalled(); expect(localStorage.getItem(WORKSPACE_KEY)).toBeNull()
   })
   it('updates Windows startup only after the user changes the setting', async () => {
     window.nexusDesktop = { platform: 'win32', getStartup: vi.fn().mockResolvedValue({ available: true, enabled: false }), setStartup: vi.fn().mockResolvedValue({ success: true, enabled: true }) }

@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('nexusDesktop', Object.freeze({
   platform: process.platform,
+  setNotchEnabled: enabled => ipcRenderer.invoke('notch:set-enabled', enabled),
+  updateNotch: state => ipcRenderer.send('notch:update', state),
+  onNotchAction(callback) { const listener = (_event, action) => callback(action); ipcRenderer.on('notch:action', listener); return () => ipcRenderer.removeListener('notch:action', listener) },
   chooseWallpaper: () => ipcRenderer.invoke('wallpaper:choose'),
   previewWallpaper: reference => ipcRenderer.invoke('wallpaper:preview', reference),
   exportWallpaper: reference => ipcRenderer.invoke('wallpaper:export', reference),

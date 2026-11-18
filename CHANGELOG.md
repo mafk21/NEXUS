@@ -4,6 +4,8 @@ This file records notable changes to NEXUS. It does not imply that an installer 
 
 ## Unreleased
 
+- Add an optional Windows floating notch for setup switching, active shortcuts, media keys, and confirmation-only suggestions.
+
 - Mitigate the build-time picomatch advisory using a pinned, independently maintained fork; add full dependency auditing to CI. See security notes for limitations.
 
 - Add in-app time, active setup and Windows system media-key widgets.
