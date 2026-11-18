@@ -14,7 +14,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run dist:win
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          # Keep the native exit code while streaming output and exposing the failure in annotations.
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run dist:win 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/nexus-build.log"
+          $buildExitCode = $LASTEXITCODE
+          if ($buildExitCode -ne 0) {
+            $tail = (Get-Content "$env:RUNNER_TEMP/nexus-build.log" -Tail 40) -join "`n"
+            $escaped = $tail.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Windows installer build failed::$escaped"
+            exit $buildExitCode
+          }
       - name: Smoke test packaged app (no system changes)
         shell: pwsh
         run: |
