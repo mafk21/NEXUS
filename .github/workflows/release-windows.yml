@@ -1,34 +1,38 @@
 name: Publish Windows release
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Existing version tag, e.g. v1.0.0-rc.2 (must match package.json)'
-        required: true
-        type: string
 permissions:
   contents: write
 jobs:
   release:
     runs-on: windows-latest
     steps:
-      - name: Validate tag input
-        shell: pwsh
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          if ($env:RELEASE_TAG -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$') { throw 'Invalid version tag' }
+      # First read the version on the branch selected in the Run workflow menu.
       - uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - name: Find the existing release tag
+        id: release
+        shell: pwsh
+        run: |
+          $tag = node scripts/release-tag.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Could not determine a valid release tag.' }
+          git show-ref --verify --quiet "refs/tags/$tag"
+          if ($LASTEXITCODE -ne 0) { throw "The tag $tag does not exist. Create it before running this workflow." }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Output "Publishing from existing tag $tag"
+      # Build the tag, not the selected branch; a branch can change after the tag was made.
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ steps.release.outputs.tag }}
       - name: Verify tagged version
         shell: pwsh
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           $version = node -p "require('./package.json').version"
           $lockVersion = node -p "require('./package-lock.json').packages[''].version"
@@ -51,7 +55,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           $version = node -p "require('./package.json').version"
           $installer = "release/NEXUS Setup $version.exe"

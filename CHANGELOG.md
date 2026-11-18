@@ -4,6 +4,8 @@ This file records notable changes to NEXUS. It does not imply that an installer 
 
 ## Unreleased
 
+- Simplify the Windows release workflow: derive the existing release tag from the selected branch version rather than requiring manual tag entry.
+
 ## 1.0.0-rc.3 — Windows release candidate
 
 - Refresh the desktop interface and Windows floating notch with layered surfaces, active-space artwork, responsive motion, and reduced-motion support.
