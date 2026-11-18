@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest an improvement to NEXUS.
+title: "[Idea]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to improve?
+      description: Describe the need or problem and who it affects.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: Explain how you imagine it working.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Add alternatives or relevant context. Do not share private information.

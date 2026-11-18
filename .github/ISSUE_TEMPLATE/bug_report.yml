@@ -1,0 +1,34 @@
+name: Bug report
+description: Report something that is not working as expected.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve NEXUS. **Do not report security vulnerabilities or post private data here.** Follow [security reporting](https://github.com/mafk21/NEXUS/security/policy) instead.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open NEXUS\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include NEXUS version or commit, Windows version, and whether you used the desktop app, installer, or browser preview. Include Node/npm versions for build problems.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output or screenshots
+      description: Remove usernames, file paths, personal information, credentials, and other sensitive details before sharing.
