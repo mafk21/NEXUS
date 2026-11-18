@@ -81,7 +81,8 @@
   "productName": "NEXUS",
   "overrides": {
     "minimatch@^10.2.5": "11.0.9",
-    "minimatch@^9.0.3": "11.0.9"
+    "minimatch@^9.0.3": "11.0.9",
+    "picomatch": "npm:@ryotsu/picomatch@4.0.7-a"
   },
   "homepage": "https://github.com/mafk21/NEXUS"
 }
