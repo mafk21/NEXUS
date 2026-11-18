@@ -1,7 +1,8 @@
 const path = require('node:path')
 const fs = require('node:fs/promises')
 const { constants } = require('node:fs')
-const { spawn } = require('node:child_process')
+const { spawn, execFile } = require('node:child_process')
+const { promisify } = require('node:util')
 const crypto = require('node:crypto')
 const TOKEN = /^pick:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
 const TYPES = ['app', 'file', 'folder']
@@ -9,12 +10,13 @@ function validWebUrl(value) {
   if (typeof value !== 'string' || value.length > 2048 || value !== value.trim()) return false
   try { const url = new URL(value); return ['http:', 'https:'].includes(url.protocol) && !!url.hostname && !url.username && !url.password } catch { return false }
 }
-function createShortcutService({ app, shell, dialog, getWindow, platform = process.platform, spawnProcess = spawn }) {
+function createShortcutService({ app, shell, dialog, getWindow, platform = process.platform, spawnProcess = spawn, execute = promisify(execFile) }) {
   async function validateApp(target) {
     if (platform === 'win32') {
       if (!/\.(exe|lnk)$/i.test(target)) throw new Error('Choose a Windows application (.exe or .lnk).')
     } else if (platform === 'linux') {
-      if (/\.(desktop|exe|lnk)$/i.test(target)) throw new Error('Choose a Linux executable, not a .desktop, .exe, or .lnk file.')
+      if (/\.(exe|lnk)$/i.test(target)) throw new Error('Choose a Linux executable or .desktop launcher, not a Windows .exe or .lnk application.')
+      if (/\.desktop$/i.test(target)) return
       try { await fs.access(target, constants.X_OK) } catch { throw new Error('Choose an executable Linux application file.') }
     } else throw new Error('App shortcuts are not supported on this platform.')
   }
@@ -75,7 +77,11 @@ function createShortcutService({ app, shell, dialog, getWindow, platform = proce
       if (type === 'folder' ? !stat.isDirectory() : !stat.isFile()) return { error: 'The target is no longer the expected type.' }
       if (type === 'app') {
         await validateApp(item.path)
-        if (platform === 'linux') { await startLinuxApp(item.path); return { success: true } }
+        if (platform === 'linux') {
+          if (/\.desktop$/i.test(item.path)) await execute('gio', ['launch', item.path], { timeout: 15000 })
+          else await startLinuxApp(item.path)
+          return { success: true }
+        }
       }
       const error = await shell.openPath(item.path)
       return error ? { error } : { success: true }
