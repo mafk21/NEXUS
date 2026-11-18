@@ -19,7 +19,7 @@ const shortcuts = createShortcutService({ app, shell, dialog, getWindow: () => m
 const startup = createStartupService({ app })
 const processes = createProcessService()
 const media = createMediaService()
-const updates = createUpdateService({ app, shell, getReleases: () => fetchReleases(net.fetch.bind(net)) })
+const updates = createUpdateService({ app, shell, net, getReleases: () => fetchReleases(net.fetch.bind(net)) })
 function requireSender(event) {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) throw new Error('Unauthorized request.')
 }
@@ -77,6 +77,8 @@ ipcMain.handle('shortcut:open', (event, type, target) => { requireSender(event);
 ipcMain.handle('media:send', (event, command) => { requireSender(event); return media.send(command) })
 ipcMain.handle('processes:list', event => { requireSender(event); return processes.list() })
 ipcMain.handle('update:check', event => { requireSender(event); return updates.check() })
+ipcMain.handle('update:download', event => { requireSender(event); return updates.download(progress => { if (!event.sender.isDestroyed()) event.sender.send('update:progress', progress) }) })
+ipcMain.handle('update:install', async event => { requireSender(event); const result = await updates.install(); if (result.success) setTimeout(() => app.quit(), 500); return result })
 ipcMain.handle('update:open-release', event => { requireSender(event); return updates.openRelease() })
 ipcMain.handle('startup:get', event => { requireSender(event); return startup.get() })
 ipcMain.handle('startup:set', (event, enabled) => { requireSender(event); return startup.set(enabled) })

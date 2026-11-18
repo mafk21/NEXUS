@@ -19,7 +19,7 @@ Your desktop should feel right for the task at hand. NEXUS organizes your space 
 - **In-app widgets:** See the time and active setup on the overview. On Windows, send previous, play/pause and next media keys to a compatible player (track information is not displayed).
 - **Suggestions, not automatic switching:** Add a daily time or Windows app-open suggestion for a setup. NEXUS asks first, and only while the app is running; accepting can open shortcuts you opted in to. App detection can miss short-lived launches.
 - **Share on your terms:** Export and import portable setup files, with an optional local-only profile name. Local app paths and custom images are not included; imported links never open automatically.
-- **Update when you choose:** In the packaged Windows app, use **Settings → Check for updates** to look for an official release. If one is available, NEXUS opens the release page so you can download and run the installer yourself.
+- **Update when you choose:** In the packaged Windows app, use **Settings → Check for updates** to look for an official release. If one is available, download it inside NEXUS and confirm before launching the installer. The installer is unsigned and the actual upgrade flow has not yet been verified on Windows.
 - **Make it comfortable:** Choose reduced motion and, in the packaged Windows app, whether NEXUS starts when you sign in.
 
 **Not yet implemented:** animated Windows desktop wallpapers. The overview widgets live inside NEXUS rather than on the desktop. The Windows notch, media keys and app-detection integration have automated tests, but have not yet been verified end-to-end on a Windows device.

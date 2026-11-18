@@ -8,7 +8,9 @@ The Electron renderer uses context isolation, a sandboxed preload, and disabled 
 
 ## Update checks
 
-Windows update checks query the fixed public `mafk21/NEXUS` GitHub releases API through Electron's network stack, on demand only. The app does not authenticate, download, verify, or execute an installer. After a newer release containing the expected Windows installer is found, a separate button opens a constructed GitHub release URL. The update check does not verify publisher identity or installer signatures; releases are currently unsigned, and GitHub's account/repository security and HTTPS are important trust boundaries. A zero audit result does not vouch for a downloaded installer. Never bypass certificate errors or warnings without understanding the risk. See [release instructions](releases.md).
+Windows update checks query the fixed public `mafk21/NEXUS` GitHub releases API through Electron's network stack, on demand only. For newer releases, NEXUS requires the exact expected Windows installer name, an uploaded asset, a bounded size, and GitHub's SHA-256 digest. A separate user action downloads from a constructed GitHub release URL, following only HTTPS redirects to an allowlist of GitHub asset hosts. The download is size-bounded, hashed as it streams, and rechecked before launch. The user must explicitly confirm launching the installer; NEXUS then closes so it can upgrade. A separate button opens the release page.
+
+The checksum detects corruption or an installer different from the metadata, **not publisher authenticity**: both the asset and digest come from GitHub. Installers are currently unsigned, and GitHub account/repository security and HTTPS are important trust boundaries. Temporary files remain after a successful launch to allow installation. The actual installed upgrade and data retention have not been verified end to end. A zero audit result does not vouch for a downloaded installer. Never bypass certificate errors or warnings without understanding the risk. See [release instructions](releases.md).
 
 ## Dependency audit
 
